@@ -1,0 +1,99 @@
+import NextAuth from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import { connectToDatabase } from '/lib/minimal-mongodb';
+import bcrypt from 'bcryptjs';
+
+export const authOptions = {
+  providers: [
+    CredentialsProvider({
+      name: 'customer-credentials',
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Şifre", type: "password" }
+      },
+      async authorize(credentials) {
+        try {
+          const { db } = await connectToDatabase();
+          const user = await db.collection('customers').findOne({ 
+            email: credentials.email 
+          });
+          
+          if (!user) {
+            console.log('Kullanıcı bulunamadı:', credentials.email);
+            return null;
+          }
+
+          const isValid = await bcrypt.compare(credentials.password, user.password);
+          if (!isValid) {
+            console.log('Şifre eşleşmedi:', credentials.email);
+            return null;
+          }
+
+          if (user.status !== 'ACTIVE') {
+            console.log('Kullanıcı aktif değil:', credentials.email);
+            return null;
+          }
+
+          return {
+            id: user._id.toString(),
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            accountType: user.accountType,
+            status: user.status,
+            phone: user.phone,
+            companyName: user.companyName,
+            taxOffice: user.taxOffice,
+            taxNumber: user.taxNumber,
+            companyAddress: user.companyAddress
+          };
+        } catch (error) {
+          console.error('Giriş hatası:', error);
+          return null;
+        }
+      }
+    })
+  ],
+  session: {
+    strategy: 'jwt',
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.firstName = user.firstName;
+        token.lastName = user.lastName;
+        token.accountType = user.accountType;
+        token.status = user.status;
+        token.phone = user.phone;
+        token.companyName = user.companyName;
+        token.taxOffice = user.taxOffice;
+        token.taxNumber = user.taxNumber;
+        token.companyAddress = user.companyAddress;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (token) {
+        session.user.id = token.id;
+        session.user.firstName = token.firstName;
+        session.user.lastName = token.lastName;
+        session.user.accountType = token.accountType;
+        session.user.status = token.status;
+        session.user.phone = token.phone;
+        session.user.companyName = token.companyName;
+        session.user.taxOffice = token.taxOffice;
+        session.user.taxNumber = token.taxNumber;
+        session.user.companyAddress = token.companyAddress;
+      }
+      return session;
+    }
+  },
+  pages: {
+    signIn: '/login',
+    error: '/login',
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+};
+
+export default NextAuth(authOptions); 

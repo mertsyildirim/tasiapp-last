@@ -1,0 +1,233 @@
+'use client'
+
+import React from 'react';
+import { useRouter } from 'next/router';
+import { useAuth } from '../../lib/auth';
+import { useSession } from 'next-auth/react';
+import { useLoadScript } from '@react-google-maps/api';
+import { toast } from 'react-toastify';
+
+// Components
+import StepBar from './components/StepBar';
+import AddressSelection from './components/AddressSelection';
+import PackageDetails from './components/PackageDetails';
+import {
+  TransportTypeModal,
+  TransportSummaryModal,
+  CarrierSearchModal,
+  CarrierAcceptedModal,
+  PaymentModal
+} from './components/modals/TransportModals';
+
+// Hooks
+import { useFormState } from './hooks/useFormState';
+import { useMapState } from './hooks/useMapState';
+import { useModalState } from './hooks/useModalState';
+
+const libraries = ["places"];
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+export default function CustomerPage() {
+  const router = useRouter();
+  const { isAuthenticated, user, logout } = useAuth();
+  const { data: session } = useSession();
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    libraries
+  });
+
+  // Custom hooks
+  const {
+    formData,
+    updateFormData,
+    updateContentDetails,
+    addImage,
+    removeImage,
+    resetForm
+  } = useFormState();
+
+  const {
+    map,
+    setMap,
+    directions,
+    pickupMarker,
+    deliveryMarker,
+    isMapMode,
+    setIsMapMode,
+    updateRoute,
+    fitMapToMarkers,
+    handleMapClick
+  } = useMapState();
+
+  const {
+    showModal,
+    showSummaryModal,
+    showSearchingModal,
+    showCarrierAcceptedModal,
+    showPhoneModal,
+    showOTPModal,
+    showPaymentModal,
+    showPaymentSuccessModal,
+    openModal,
+    closeModal
+  } = useModalState();
+
+  const [currentStep, setCurrentStep] = React.useState(0);
+  const [services, setServices] = React.useState([]);
+  const [selectedService, setSelectedService] = React.useState(null);
+  const [carrier, setCarrier] = React.useState(null);
+  const [paymentDetails, setPaymentDetails] = React.useState({
+    transportFee: 0,
+    tax: 0,
+    total: 0
+  });
+
+  // Handle step navigation
+  const handleNextStep = () => {
+    if (currentStep < 5) {
+      setCurrentStep(prev => prev + 1);
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(prev => prev - 1);
+    }
+  };
+
+  // Handle service selection
+  const handleServiceSelect = (service) => {
+    setSelectedService(service);
+    closeModal('transportType');
+    handleNextStep();
+  };
+
+  // Handle carrier search
+  const handleCarrierSearch = () => {
+    openModal('searching');
+    // Simüle edilmiş taşıyıcı arama
+    setTimeout(() => {
+      setCarrier({
+        name: 'Ahmet Yılmaz',
+        rating: 4.8,
+        phone: '0532 123 45 67',
+        vehicleInfo: 'Mercedes Sprinter - 34 ABC 123'
+      });
+      closeModal('searching');
+      openModal('carrierAccepted');
+    }, 2000);
+  };
+
+  // Render step content
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 0:
+        return (
+          <AddressSelection
+            pickupAddress={formData.pickupAddress}
+            deliveryAddress={formData.deliveryAddress}
+            onPickupAddressChange={(value) => updateFormData('pickupAddress', value)}
+            onDeliveryAddressChange={(value) => updateFormData('deliveryAddress', value)}
+            map={map}
+            pickupMarker={pickupMarker}
+            deliveryMarker={deliveryMarker}
+            isMapMode={isMapMode}
+            onMapClick={handleMapClick}
+            onMapModeToggle={() => setIsMapMode(!isMapMode)}
+          />
+        );
+      case 1:
+        return (
+          <PackageDetails
+            contentDetails={formData.contentDetails}
+            onContentDetailsChange={updateContentDetails}
+            onImageUpload={(e) => {
+              const file = e.target.files[0];
+              if (file) addImage(file);
+            }}
+            uploadedImages={formData.uploadedImages}
+            onRemoveImage={removeImage}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  if (loadError) {
+    return <div>Harita yüklenirken bir hata oluştu</div>;
+  }
+
+  if (!isLoaded) {
+    return <div>Yükleniyor...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        <StepBar currentStep={currentStep} />
+        
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          {renderStepContent()}
+          
+          <div className="mt-6 flex justify-between">
+            <button
+              onClick={handlePrevStep}
+              disabled={currentStep === 0}
+              className={`px-6 py-2 rounded-lg ${
+                currentStep === 0
+                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                  : 'bg-orange-500 text-white hover:bg-orange-600'
+              }`}
+            >
+              Geri
+            </button>
+            
+            <button
+              onClick={handleNextStep}
+              disabled={currentStep === 5}
+              className={`px-6 py-2 rounded-lg ${
+                currentStep === 5
+                  ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                  : 'bg-orange-500 text-white hover:bg-orange-600'
+              }`}
+            >
+              İleri
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
+      <TransportTypeModal
+        isOpen={showModal}
+        onClose={() => closeModal()}
+        onSelect={handleServiceSelect}
+        services={services}
+      />
+
+      <TransportSummaryModal
+        isOpen={showSummaryModal}
+        onClose={() => closeModal('summary')}
+        transportDetails={formData}
+      />
+
+      <CarrierSearchModal
+        isOpen={showSearchingModal}
+        onClose={() => closeModal('searching')}
+      />
+
+      <CarrierAcceptedModal
+        isOpen={showCarrierAcceptedModal}
+        onClose={() => closeModal('carrierAccepted')}
+        carrier={carrier}
+      />
+
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => closeModal('payment')}
+        paymentDetails={paymentDetails}
+      />
+    </div>
+  );
+} 
