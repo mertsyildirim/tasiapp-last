@@ -562,7 +562,7 @@ export default function Register() {
                   
                   {formData.documentLater && (
                     <p className="mt-2 text-sm text-gray-600 italic">
-                      Belgelerinizi daha sonra yüklemek üzere kaydoluyorsunuz. Hesabınız "Belge Bekleniyor" statüsünde olacak ve belgelerinizi yükledikten sonra onay sürecine geçecektir.
+                      Belgelerinizi daha sonra yüklemek üzere kaydoluyorsunuz. Hesabınız &quot;Belge Bekleniyor&quot; statüsünde olacak ve belgelerinizi yükledikten sonra onay sürecine geçecektir.
                     </p>
                   )}
                 </div>
@@ -577,7 +577,7 @@ export default function Register() {
                     className={`h-4 w-4 ${errors.agreeToTerms ? 'text-red-600 border-red-500' : 'text-orange-600 border-gray-300'} rounded focus:ring-orange-500`}
                   />
                   <label htmlFor="agreeToTerms" className="ml-2 block text-sm text-gray-700">
-                    <Link href="/terms" className="text-orange-600 hover:text-orange-500">Kullanım Şartları</Link>'nı ve <Link href="/privacy" className="text-orange-600 hover:text-orange-500">Gizlilik Politikası</Link>'nı kabul ediyorum
+                    <Link href="/terms" className="text-orange-600 hover:text-orange-500">Kullanım Şartları</Link>&apos;nı ve <Link href="/privacy" className="text-orange-600 hover:text-orange-500">Gizlilik Politikası</Link>&apos;nı kabul ediyorum
                   </label>
                 </div>
                 {errors.agreeToTerms && <p className="mt-1 text-sm text-red-600">{errors.agreeToTerms}</p>}

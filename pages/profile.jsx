@@ -950,7 +950,7 @@ export default function Profile() {
                                   ) : (
                                     <span className="text-gray-400 flex items-center text-xs">
                                       <FaFilePdf className="w-4 h-4 mr-1" />
-                                      Fatura PDF'i henüz hazır değil
+                                      Fatura PDF&apos;i henüz hazır değil
                                     </span>
                                   )}
                                 </div>

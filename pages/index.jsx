@@ -2744,7 +2744,7 @@ export default function MusteriSayfasi() {
                         <span className="text-orange-600 font-semibold text-sm md:text-base">
                           {service.price} TL
                         </span>
-                        <span className="text-gray-500 text-xs md:text-sm">'den başlayan fiyatlarla</span>
+                        <span className="text-gray-500 text-xs md:text-sm">&apos;den başlayan fiyatlarla</span>
                     </div>
                   )}
                 </div>
@@ -2971,7 +2971,7 @@ export default function MusteriSayfasi() {
                       <span className="text-orange-600 font-semibold">
                         {service.price} TL
                       </span>
-                      <span className="text-gray-500 text-sm">'den başlayan fiyatlarla</span>
+                      <span className="text-gray-500 text-sm">&apos;den başlayan fiyatlarla</span>
                     </div>
                   )}
                   {!service.isActive && (
@@ -3354,7 +3354,7 @@ export default function MusteriSayfasi() {
                     <p className="text-gray-600">{selectedService?.description}</p>
                     {selectedService?.price && (
                       <p className="text-orange-500 font-semibold mt-2">
-                        {selectedService.price} TL'den başlayan fiyatlarla
+                        {selectedService.price} TL&apos;den başlayan fiyatlarla
                       </p>
                     )}
                     </div>
