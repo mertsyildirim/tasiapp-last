@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import AdminLayout from '../../components/admin/AdminLayout';
+import AdminLayout from '../../components/admin/Layout';
 import { FaEdit, FaTrash, FaPlus, FaCheck, FaTimes } from 'react-icons/fa';
 
 const Companies = () => {
