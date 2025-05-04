@@ -410,17 +410,16 @@ export default function Dashboard() {
 
     // Haritaya Google Maps'in yüklenmesini izle ve harita başlat
     useEffect(() => {
-      if (selectedShipment && mapScriptLoaded && mapRef.current) {
-        // API tamamen yüklenene kadar bekle
-        const timer = setTimeout(() => {
-          console.log('Harita gösterilmeye çalışılıyor');
-          initMap();
-        }, 1000);
-        
-        return () => clearTimeout(timer);
-      }
+      if (!selectedShipment || !mapScriptLoaded || !mapRef.current) return;
+    
+      const timer = setTimeout(() => {
+        console.log('Harita gösterilmeye çalışılıyor');
+        initMap();
+      }, 1000);
+    
+      return () => clearTimeout(timer);
     }, [selectedShipment, mapScriptLoaded]);
-
+    
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg w-full max-w-6xl max-h-[95vh] overflow-y-auto">
