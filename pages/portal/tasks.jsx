@@ -10,6 +10,7 @@ export default function Tasks() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [sortOrder, setSortOrder] = useState('desc');
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
