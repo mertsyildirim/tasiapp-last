@@ -6,18 +6,15 @@ export function middleware(request) {
     return NextResponse.next();
   }
   
-  // Admin sayfalarına istek için NextAuth oturum çerezini kontrol et
-  const sessionToken = 
-    request.cookies.get('tasiapp-admin-auth-session-token')?.value || 
-    request.cookies.get('next-auth.session-token')?.value ||
-    request.cookies.get('__Secure-next-auth.session-token')?.value;
+  // Admin sayfalarına istek için token kontrolü yap
+  const token = request.cookies.get('token')?.value;
   
-  // Oturum çerezi yoksa giriş sayfasına yönlendir
-  if (!sessionToken) {
+  // Token yoksa giriş sayfasına yönlendir
+  if (!token) {
     return NextResponse.redirect(new URL('/admin', request.url));
   }
   
-  // Oturum çerezi varsa, erişime izin ver
+  // Token varsa, erişime izin ver (rol kontrolü yapmadan)
   return NextResponse.next();
 }
 
