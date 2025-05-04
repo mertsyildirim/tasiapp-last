@@ -12,7 +12,6 @@ import Modal from 'react-modal';
 import { calculateBasePrice } from '../lib/pricing';
 import { applyCampaign } from '../lib/campaign';
 import axios from 'axios';
-import Link from 'next/link'
 
 // Google Maps için kütüphaneleri tanımla
 const libraries = ['places'];
