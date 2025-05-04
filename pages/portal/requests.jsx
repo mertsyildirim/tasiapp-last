@@ -550,11 +550,11 @@ export default function Requests() {
             });
           } else {
             console.error('Geçerli koordinat verisi bulunamadı, adres bazlı geocoding yapılacak');
-            useGeocodingForMap(map, directionsService, directionsRenderer, pickupIcon, deliveryIcon);
+            performGeocodingForMap(map, directionsService, directionsRenderer, pickupIcon, deliveryIcon);
           }
         } else {
           console.log('Koordinat verisi bulunamadı, adres bazlı geocoding yapılacak');
-          useGeocodingForMap(map, directionsService, directionsRenderer, pickupIcon, deliveryIcon);
+          performGeocodingForMap(map, directionsService, directionsRenderer, pickupIcon, deliveryIcon);
         }
       } catch (error) {
         console.error('Google Maps API objeleri oluşturulurken hata:', error);
@@ -567,7 +567,7 @@ export default function Requests() {
   };
 
   // Adres ile harita oluşturma (geocoding)
-  const useGeocodingForMap = (map, directionsService, directionsRenderer, pickupIcon, deliveryIcon) => {
+  const performGeocodingForMap = (map, directionsService, directionsRenderer, pickupIcon, deliveryIcon) => {
     if (!mapData) {
       setMapLoading(false);
       return;

@@ -191,7 +191,7 @@ export default function TasiyiciSayfasi() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-xl font-bold mb-4">Taşı.app</h3>
-              <p className="text-gray-400 mb-4">Türkiye'nin lider lojistik ve taşımacılık platformu. Güvenli ve hızlı taşıma hizmetleri için bizi tercih edin.</p>
+              <p className="text-gray-400 mb-4">Türkiye&apos;nin lider lojistik ve taşımacılık platformu. Güvenli ve hızlı taşıma hizmetleri için bizi tercih edin.</p>
               <div className="flex space-x-4">
                 <a href="#" className="text-gray-400 hover:text-white transition"><FaFacebook size={20} /></a>
                 <a href="#" className="text-gray-400 hover:text-white transition"><FaTwitter size={20} /></a>

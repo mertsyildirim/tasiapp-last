@@ -523,7 +523,7 @@ export default function ParsiyelPage() {
                     </div>
                     <div className="ml-4">
                       <h4 className="text-base font-medium">Ekonomik Taşıma</h4>
-                      <p className="mt-1 text-sm text-gray-500">Tam kamyon yüküne göre %40'a varan tasarruf</p>
+                      <p className="mt-1 text-sm text-gray-500">Tam kamyon yüküne göre %40&apos;a varan tasarruf</p>
                     </div>
                   </div>
 

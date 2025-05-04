@@ -307,9 +307,9 @@ export default function IletisimPage() {
               
               <div className="mt-8 pt-8 border-t border-gray-200">
                 <h3 className="font-medium text-gray-800 mb-4">Hizmet Bölgelerimiz</h3>
-                <p className="text-gray-600">
-                  Şimdi <span className="font-bold underline">İstanbul</span>, <span className="font-bold underline">İzmir</span> ve <span className="font-bold underline">Ankara</span>. Yakında Tüm Türkiye'de...
-                </p>
+                <div className="mt-8 text-center">
+                  <p className="text-lg text-gray-700">Şu an sadece <span className="font-semibold text-orange-600 hover:underline">İstanbul</span> ve <span className="font-semibold text-orange-600 hover:underline">Ankara</span>. Yakında Tüm Türkiye&apos;de...</p>
+                </div>
               </div>
             </div>
             
@@ -441,7 +441,7 @@ export default function IletisimPage() {
             <div className="col-span-1 md:col-span-2">
               <img src="/logo.png" alt="Taşı.app" className="h-8 mb-4" />
               <p className="text-gray-400 mb-4">
-                Türkiye'nin en güvenilir ve hızlı taşımacılık platformu. Tek tıkla taşıyıcı bulun, anlık takip edin.
+                Türkiye&apos;nin en güvenilir ve hızlı taşımacılık platformu. Tek tıkla taşıyıcı bulun, anlık takip edin.
               </p>
             </div>
             

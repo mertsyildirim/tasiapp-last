@@ -16,6 +16,7 @@ import Head from 'next/head'
 import axios from 'axios'
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api'
 import { useSession, signOut } from 'next-auth/react'
+import Link from 'next/link'
 
 // Google Maps API anahtarı
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyAKht3SqaVJpufUdq-vVQEfBEQKejT9Z8k";
@@ -360,9 +361,9 @@ export default function DashboardPage() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Son Müşteriler</h2>
-                <a href="/admin/customers" className="text-blue-600 hover:text-blue-800 text-sm flex items-center">
+                <Link href="/admin/customers" className="text-blue-600 hover:text-blue-800 text-sm flex items-center">
                   Tümünü Gör <FaExternalLinkAlt className="ml-1" size={12} />
-                </a>
+                </Link>
               </div>
               
               {recent.users && recent.users.length > 0 ? (
@@ -396,9 +397,9 @@ export default function DashboardPage() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Son Taşımalar</h2>
-                <a href="/admin/shipments" className="text-blue-600 hover:text-blue-800 text-sm flex items-center">
+                <Link href="/admin/shipments" className="text-blue-600 hover:text-blue-800 text-sm flex items-center">
                   Tümünü Gör <FaExternalLinkAlt className="ml-1" size={12} />
-                </a>
+                </Link>
               </div>
               
               {recent.transportRequests && recent.transportRequests.length > 0 ? (
@@ -427,9 +428,9 @@ export default function DashboardPage() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Son Firmalar</h2>
-                <a href="/admin/companies" className="text-blue-600 hover:text-blue-800 text-sm flex items-center">
+                <Link href="/admin/companies" className="text-blue-600 hover:text-blue-800 text-sm flex items-center">
                   Tümünü Gör <FaExternalLinkAlt className="ml-1" size={12} />
-                </a>
+                </Link>
               </div>
               
               {recent.companies && recent.companies.length > 0 ? (
