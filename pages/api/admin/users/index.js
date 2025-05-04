@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import { connectToDatabase } from '../../../..///lib/minimal-mongodb';
+import { connectToDatabase } from '../../../../lib/minimal-mongodb';
 import bcrypt from 'bcryptjs';
 import { setupCORS, handleOptionsRequest, sendSuccess, sendError, logRequest } from '../../../..//lib/api-utils';
 

@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/admin/[...nextauth].js';
-import { connectToDatabase, ensureCollection } from '../../..///lib/minimal-mongodb';
+import { connectToDatabase, ensureCollection } from '../../../lib/minimal-mongodb';
 import { ObjectId } from 'mongodb';
 
 // CORS middleware

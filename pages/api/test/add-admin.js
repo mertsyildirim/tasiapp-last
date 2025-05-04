@@ -1,4 +1,4 @@
-import { connectToDatabase } from '../../..///lib/minimal-mongodb';
+import { connectToDatabase } from '../../../lib/minimal-mongodb';
 import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {

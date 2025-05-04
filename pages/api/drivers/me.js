@@ -1,5 +1,5 @@
-import { connectToDatabase } from '../../../lib/db';
-import User from '../../../models/User';
+import { connectToDatabase } from '../../../lib/minimal-mongodb';
+import { User } from '../../../models/User';
 
 export default async function handler(req, res) {
   // Yalnızca GET isteklerine izin ver

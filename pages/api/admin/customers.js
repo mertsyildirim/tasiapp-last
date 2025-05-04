@@ -1,4 +1,4 @@
-import { connectToDatabase } from '../../..///lib/minimal-mongodb';
+import { connectToDatabase } from '../../../lib/minimal-mongodb';
 import { ObjectId } from 'mongodb';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/admin/[...nextauth].js';

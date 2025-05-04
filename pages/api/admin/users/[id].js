@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import { connectToDatabase } from '../../../..///lib/minimal-mongodb';
+import { connectToDatabase } from '../../../../lib/minimal-mongodb';
 import { setupCORS, handleOptionsRequest, sendSuccess, sendError, logRequest } from '../../../..//lib/api-utils';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../auth/admin/[...nextauth].js';

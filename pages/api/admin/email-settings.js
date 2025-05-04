@@ -1,4 +1,4 @@
-import { connectToDatabase } from '../../..///lib/minimal-mongodb';
+import { connectToDatabase } from '../../../lib/minimal-mongodb';
 import { ObjectId } from 'mongodb';
 import { setupCORS, handleOptionsRequest, sendSuccess, sendError, logRequest } from '../../..//lib/api-utils';
 import jwt from 'jsonwebtoken';
