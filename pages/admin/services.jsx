@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import AdminLayout from 'components/admin/Layout'
+import AdminLayout from '../../components/admin/Layout'
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa'
 import { toast } from 'react-hot-toast'
 
