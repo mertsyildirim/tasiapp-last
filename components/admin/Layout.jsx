@@ -263,7 +263,20 @@ export default function AdminLayout({ children, title, fixedHeader = false }) {
 
   // İstemci tarafında render edilmeden önce boş div döndür
   if (!isClient) {
-    return <div></div>;
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="flex flex-col min-h-screen">
+          <header className="bg-white shadow-sm z-20 sticky top-0">
+            <div className="px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+              <h1 className="text-xl font-semibold text-gray-900">Yükleniyor...</h1>
+            </div>
+          </header>
+          <main className="flex-1 p-6">
+            {children}
+          </main>
+        </div>
+      </div>
+    );
   }
 
   return (
