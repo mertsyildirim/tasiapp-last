@@ -1,5 +1,5 @@
 import { connectToDatabase } from '../../../lib/db';
-import User from '../../../src/models/User';
+import User from '../../../models/User';
 
 export default async function handler(req, res) {
   // Sadece GET ve PUT isteklerine izin ver

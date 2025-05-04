@@ -1,5 +1,5 @@
 const { connectToDatabase } = require('..///lib/minimal-mongodb');
-const User = require('../src/models/User');
+const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 
 const TEST_USERS = [
