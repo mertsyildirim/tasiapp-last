@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import AdminLayout from '.@/components/layouts/AdminLayout';
+import AdminLayout from '@/components/admin/Layout';
 import { FaUsers, FaSearch, FaFilter, FaUserPlus, FaEdit, FaTrash, FaExclamationTriangle, FaTimes, FaUserShield, FaUserTie, FaUser } from 'react-icons/fa';
 import axios from 'axios';
 import Link from 'next/link';
