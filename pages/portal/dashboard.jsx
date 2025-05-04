@@ -405,21 +405,25 @@ export default function Dashboard() {
   };
 
   // Detay modalı
-  const ShipmentDetailModal = () => {
-    if (!selectedShipment) return null;
-
+  const ShipmentDetailModal = ({ selectedShipment, mapScriptLoaded, mapRef, initMap, closeModal, formatDistance, mapLoading }) => {
     // Haritaya Google Maps'in yüklenmesini izle ve harita başlat
     useEffect(() => {
-      if (!selectedShipment || !mapScriptLoaded || !mapRef.current) return;
+      let timer;
+      
+      if (selectedShipment && mapScriptLoaded && mapRef.current) {
+        timer = setTimeout(() => {
+          console.log('Harita gösterilmeye çalışılıyor');
+          initMap();
+        }, 1000);
+      }
     
-      const timer = setTimeout(() => {
-        console.log('Harita gösterilmeye çalışılıyor');
-        initMap();
-      }, 1000);
+      return () => {
+        if (timer) clearTimeout(timer);
+      };
+    }, [selectedShipment, mapScriptLoaded, initMap, mapRef]);
     
-      return () => clearTimeout(timer);
-    }, [selectedShipment, mapScriptLoaded]);
-    
+    if (!selectedShipment) return null;
+
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg w-full max-w-6xl max-h-[95vh] overflow-y-auto">
@@ -1135,7 +1139,7 @@ export default function Dashboard() {
           {/* Alt çizgi - ekranın altına sabitlenmiş */}
           <div className="w-full border-t border-gray-200 mt-auto"></div>
         </div>
-        {showModal && <ShipmentDetailModal />}
+        {showModal && <ShipmentDetailModal selectedShipment={selectedShipment} mapScriptLoaded={mapScriptLoaded} mapRef={mapRef} initMap={initMap} closeModal={closeModal} formatDistance={formatDistance} mapLoading={mapLoading} />}
       </PortalLayout>
     </>
   );
