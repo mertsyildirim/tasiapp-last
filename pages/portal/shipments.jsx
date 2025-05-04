@@ -167,7 +167,7 @@ export default function Shipments() {
       
       return () => clearTimeout(timer);
     }
-  }, [showMap, mapData, mapScriptLoaded]); // initMap burada kullanılıyor ama tanımı fonksiyondan sonra
+  }, [showMap, mapData, mapScriptLoaded, initMap]); // initMap burada kullanılıyor ama tanımı fonksiyondan sonra
 
   // Seçilen taşıma değiştiğinde şoför ve araç bilgilerini güncelle
   useEffect(() => {
