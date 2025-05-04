@@ -1,6 +1,6 @@
 import { connectToDatabase } from '../../../lib/db';
-import User from '../../../src/models/User';
-import Shipment from '../../../src/models/Shipment';
+import User from '../../../models/User';
+import Shipment from '../../../models/Shipment';
 import mongoose from 'mongoose';
 
 export default async function handler(req, res) {
