@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import connectToDatabase from '../../../../utils/mongodb';
+import connectToDatabase from '../../../../lib/minimal-mongodb';
 
 export default async function handler(req, res) {
   if (req.method !== 'PUT') {
