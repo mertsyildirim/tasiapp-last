@@ -1,4 +1,4 @@
-import { connectToDatabase } from '../../lib/db';
+import { connectToDatabase } from '../../lib/minimal-mongodb';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
