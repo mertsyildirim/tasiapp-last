@@ -1,6 +1,6 @@
-import { connectToDatabase } from '../../..///lib/minimal-mongodb';
+import { connectToDatabase } from '../../../lib/minimal-mongodb';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth].js';
+import { authOptions } from '../../auth/admin/[...nextauth].js';
 import { setupCORS, handleOptionsRequest, sendSuccess, sendError, logRequest } from '../../..//lib/api-utils';
 import jwt from 'jsonwebtoken';
 

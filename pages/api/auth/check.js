@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from './[...nextauth].js';
+import { authOptions } from '../auth/admin/[...nextauth].js';
 import { connectToDatabase } from '../../../lib/minimal-mongodb';
 
 export default async function handler(req, res) {

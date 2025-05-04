@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '../auth/admin/[...nextauth].js'
-import connectDB from '/lib/minimal-mongodb'
+import connectDB from '../../../lib/minimal-mongodb'
 import Campaign from '../../../models/Campaign'
 
 export default async function handler(req, res) {

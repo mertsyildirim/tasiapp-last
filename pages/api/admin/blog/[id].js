@@ -1,5 +1,5 @@
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '../../../auth/[...nextauth]'
+import { authOptions } from '../../auth/admin/[...nextauth]'
 import { connectToDatabase } from '/lib/minimal-mongodb'
 import { ObjectId } from 'mongodb'
 import Blog from '../../../../models/Blog'
