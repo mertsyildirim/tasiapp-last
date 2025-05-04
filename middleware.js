@@ -1,27 +1,13 @@
 import { NextResponse } from 'next/server';
 
+// Middleware artık admin koruması yapmıyor
+// Admin sayfaları kendi içlerinde useSession hook'u ile koruma sağlıyor
 export function middleware(request) {
-  // Eğer doğrudan admin giriş sayfasına istek yaptıysa, izin ver
-  if (request.nextUrl.pathname === '/admin') {
-    return NextResponse.next();
-  }
-  
-  // Admin sayfalarına istek için NextAuth session token kontrolü
-  const sessionToken = 
-    request.cookies.get('tasiapp-admin-auth-session-token')?.value ||
-    request.cookies.get('next-auth.session-token')?.value ||
-    request.cookies.get('__Secure-next-auth.session-token')?.value;
-  
-  // Session yoksa giriş sayfasına yönlendir
-  if (!sessionToken) {
-    return NextResponse.redirect(new URL('/admin', request.url));
-  }
-  
-  // Session varsa, erişime izin ver
+  // Eski admin koruması kaldırıldı
   return NextResponse.next();
 }
 
-// Admin altındaki tüm sayfalara bu middleware'i uygula
+// Admin matcher kaldırıldı
 export const config = {
-  matcher: ['/admin/:path*']
+  matcher: [] // Şu an middleware hiçbir sayfaya uygulanmıyor
 }; 
