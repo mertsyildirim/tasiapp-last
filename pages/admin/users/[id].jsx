@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { withAuth } from '../../../lib/auth';
-import AdminLayout from '../../../components/layouts/AdminLayout';
+import AdminLayout from '@/components/layouts/AdminLayout';
 import { FaUserEdit, FaArrowLeft, FaSave, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
