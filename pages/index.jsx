@@ -1330,7 +1330,7 @@ export default function MusteriSayfasi() {
                       onPlaceChanged={onPickupPlaceChanged}
                       options={{
                         componentRestrictions: { country: "tr" },
-                        types: ["address", "establishment", "geocode"],
+                        types: ["address"], // Sadece address tipini kullan
                         fields: ["formatted_address", "geometry", "name", "place_id"],
                         bounds: {
                           north: 42.1000, // Türkiye'nin kuzey sınırı
@@ -2771,7 +2771,7 @@ export default function MusteriSayfasi() {
                       onPlaceChanged={onPickupPlaceChanged}
                       options={{
                         componentRestrictions: { country: "tr" },
-                        types: ["address", "establishment", "geocode"],
+                        types: ["address"], // Sadece address tipini kullan
                         fields: ["formatted_address", "geometry", "name", "place_id"],
                         bounds: {
                           north: 42.1000, // Türkiye'nin kuzey sınırı
