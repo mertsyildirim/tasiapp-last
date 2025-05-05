@@ -1955,7 +1955,7 @@ export default function MusteriSayfasi() {
                               <p className="text-sm text-gray-700">{subtitleText}</p>
                             </div>
                             {relatedService && (
-                              <p className="text-xs text-blue-600 mt-1 ml-7">*Paketiniz "{relatedService.name}" ile taşınacaktır</p>
+                              <p className="text-xs text-blue-600 mt-1 ml-7">*Paketiniz &quot;{relatedService.name}&quot; ile taşınacaktır</p>
                             )}
                           </div>
                         );
@@ -3811,7 +3811,7 @@ export default function MusteriSayfasi() {
                                     <p className="text-sm text-gray-700">{subtitleText}</p>
                                   </div>
                                   {relatedService && (
-                                    <p className="text-xs text-blue-600 mt-1 ml-7">*Paketiniz "{relatedService.name}" ile taşınacaktır</p>
+                                    <p className="text-xs text-blue-600 mt-1 ml-7">*Paketiniz &quot;{relatedService.name}&quot; ile taşınacaktır</p>
                                   )}
                                 </div>
                               );
