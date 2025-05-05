@@ -104,6 +104,20 @@ const modalStyles = {
 
 // Modal bileşeni
 const CustomModal = ({ isOpen, onClose, children }) => {
+  // Modal açıldığında body'e overflow-hidden ekle, kapandığında kaldır
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    
+    // Cleanup fonksiyonu
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+  
   if (!isOpen) return null;
 
   return (
@@ -1244,20 +1258,27 @@ export default function MusteriSayfasi() {
                       onPlaceChanged={onPickupPlaceChanged}
                       options={{
                         componentRestrictions: { country: "tr" },
-                        types: ["establishment", "geocode"],
-                        fields: ["formatted_address", "geometry", "name", "place_id"]
+                        types: ["address", "establishment", "geocode"],
+                        fields: ["formatted_address", "geometry", "name", "place_id"],
+                        bounds: {
+                          north: 42.1000, // Türkiye'nin kuzey sınırı
+                          south: 35.8000, // Türkiye'nin güney sınırı
+                          east: 44.8000,  // Türkiye'nin doğu sınırı
+                          west: 26.0000   // Türkiye'nin batı sınırı
+                        },
+                        strictBounds: true
                       }}
                     >
-                      <div>
-                      <input
-                        type="text"
+                        <div>
+                      <input 
+                        type="text" 
                         value={pickupAddress}
-                          onChange={handlePickupInputChange}
-                          onFocus={handlePickupFocus}
-                          placeholder="Alış noktası"
-                          className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        onChange={handlePickupInputChange}
+                        onFocus={handlePickupFocus}
+                            placeholder="Alış noktası"
+                            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
-                      </div>
+                        </div>
                     </Autocomplete>
                   ) : (
                     <input
@@ -2248,7 +2269,7 @@ export default function MusteriSayfasi() {
     <main className={`min-h-screen bg-gray-100 flex flex-col ${showModal || showSummaryModal || showPhoneModal || showSearchingModal || showWaitingApprovalModal || showCarrierDetailsModal || showPaymentModal || showPaymentSuccessModal ? 'modal-blur' : ''}`}>
       <div className="flex-grow">
         {/* Navigation */}
-        <nav className="bg-white shadow-md py-4">
+        <nav className="bg-white shadow-md py-4 sticky top-0 z-[100] w-full">
           <div className="container mx-auto px-4 flex justify-between items-center">
             <Link href="/" className="flex items-center">
               <img src="/logo.png" alt="Taşı.app" className="h-10" />
@@ -2305,7 +2326,11 @@ export default function MusteriSayfasi() {
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className="p-2 text-orange-500 hover:text-orange-600 focus:outline-none"
                   >
-                <FaBars className="w-6 h-6" />
+                {showMobileMenu ? (
+                  <FaTimes className="w-6 h-6 text-orange-500" />
+                ) : (
+                  <FaBars className="w-6 h-6" />
+                )}
                   </button>
                 </div>
           </div>
@@ -2406,7 +2431,7 @@ export default function MusteriSayfasi() {
                 </p>
                 
                 {/* Mobilde görsel */}
-                <div className="md:hidden w-full flex justify-center mb-8">
+                {/*<div className="md:hidden w-full flex justify-center mb-8">
                   <img 
                     src="/hero-truck.png" 
                     alt="Taşıma Hizmeti" 
@@ -2415,7 +2440,7 @@ export default function MusteriSayfasi() {
                       filter: 'drop-shadow(0 10px 15px rgba(0,0,0,0.1))'
                     }}
                   />
-                </div>
+                </div>*/}
                 <div className="flex justify-center md:justify-start">
                 <button
                   onClick={() => {
@@ -2461,8 +2486,15 @@ export default function MusteriSayfasi() {
                       onPlaceChanged={onPickupPlaceChanged}
                       options={{
                         componentRestrictions: { country: "tr" },
-                        types: ["establishment", "geocode"],
-                        fields: ["formatted_address", "geometry", "name", "place_id"]
+                        types: ["address", "establishment", "geocode"],
+                        fields: ["formatted_address", "geometry", "name", "place_id"],
+                        bounds: {
+                          north: 42.1000, // Türkiye'nin kuzey sınırı
+                          south: 35.8000, // Türkiye'nin güney sınırı
+                          east: 44.8000,  // Türkiye'nin doğu sınırı
+                          west: 26.0000   // Türkiye'nin batı sınırı
+                        },
+                        strictBounds: true
                       }}
                     >
                         <div>
@@ -2550,6 +2582,9 @@ export default function MusteriSayfasi() {
                           <span className="font-bold">{routeInfo.duration || '---'}</span>
                       </div>
                     </div>
+                  )}
+                  {routeInfo && (
+                    <p className="text-xs text-gray-500 mt-2 italic">*Mesafe ve süre bilgileri tahminidir. Trafik durumuna bağlı olarak değişebilir.</p>
                   )}
                   <button
                     className={`w-full mt-3 px-4 py-2 rounded-lg transition ${
@@ -2659,31 +2694,66 @@ export default function MusteriSayfasi() {
                 </GoogleMap>
               )}
 
-                {!isMobile && (
-                  <button
-                    className="absolute top-4 right-4 z-50 bg-white p-2 rounded-full shadow hover:shadow-lg"
-                    onClick={() => {
-                      if (!mapRef.current || !window.google?.maps) return;
+                {/* Harita kontrol butonları */}
+                {!mapError && isLoaded && (
+                  <div className="absolute top-20 right-4 z-50 flex flex-col gap-2">
+                    {/* Mevcut konum butonu - sadece haritadan seçim yapılırken göster */}
+                    {(isSelectingPickup || isSelectingDelivery) && (
+                      <button
+                        className="bg-white p-3 rounded-full shadow hover:shadow-lg"
+                        onClick={() => {
+                          // Kullanıcının mevcut konumunu al
+                          if (navigator.geolocation && mapRef.current) {
+                            navigator.geolocation.getCurrentPosition(
+                              (position) => {
+                                const currentLocation = {
+                                  lat: position.coords.latitude,
+                                  lng: position.coords.longitude
+                                };
+                                // Haritayı mevcut konuma merkez
+                                mapRef.current.panTo(currentLocation);
+                                mapRef.current.setZoom(15);
+                              },
+                              (error) => {
+                                console.error('Konum alınamadı:', error);
+                                alert('Konum izni vermediğiniz için işlem gerçekleştirilemiyor. Lütfen konum izni verin.');
+                              }
+                            );
+                          }
+                        }}
+                      >
+                        <FaLocationArrow className="text-orange-500 text-xl" />
+                      </button>
+                    )}
+                    
+                    {/* Rota merkezleme butonu - sadece her iki adres girildiğinde göster */}
+                    {pickupMarker && deliveryMarker && (
+                      <button
+                        className="bg-white p-3 rounded-full shadow hover:shadow-lg"
+                        onClick={() => {
+                          if (!mapRef.current || !window.google?.maps) return;
 
-                      const map = mapRef.current;
+                          const map = mapRef.current;
 
-                      if (pickupMarker && deliveryMarker) {
-                        const bounds = new window.google.maps.LatLngBounds();
-                        bounds.extend(pickupMarker);
-                        bounds.extend(deliveryMarker);
-                        map.fitBounds(bounds);
-                      } else if (pickupMarker) {
-                        map.setCenter(pickupMarker);
-                        map.setZoom(14);
-                      } else if (deliveryMarker) {
-                        map.setCenter(deliveryMarker);
-                        map.setZoom(14);
-                      }
-                    }}
-                  >
-                    <FaRoute className="text-orange-500" />
-                  </button>
-              )}
+                          if (pickupMarker && deliveryMarker) {
+                            const bounds = new window.google.maps.LatLngBounds();
+                            bounds.extend(pickupMarker);
+                            bounds.extend(deliveryMarker);
+                            map.fitBounds(bounds);
+                          } else if (pickupMarker) {
+                            map.setCenter(pickupMarker);
+                            map.setZoom(14);
+                          } else if (deliveryMarker) {
+                            map.setCenter(deliveryMarker);
+                            map.setZoom(14);
+                          }
+                        }}
+                      >
+                        <FaRoute className="text-orange-500" />
+                      </button>
+                    )}
+                  </div>
+                )}
             </div>
           </div>
         </div>
@@ -2937,11 +3007,11 @@ export default function MusteriSayfasi() {
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-semibold">Taşıma Türü</h2>
                         </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               {services.map((service) => (
                 <div 
                   key={service._id}
-                  className={`p-6 border rounded-lg cursor-pointer transition-all ${
+                  className={`p-4 sm:p-6 border rounded-lg cursor-pointer transition-all ${
                     service.isActive 
                       ? selectedService?._id === service._id
                         ? 'border-orange-500 shadow-lg'
@@ -2959,23 +3029,23 @@ export default function MusteriSayfasi() {
                       <img 
                         src={service.icon} 
                         alt={service.name} 
-                        className="w-12 h-12 object-contain mr-4"
+                        className="w-10 h-10 sm:w-12 sm:h-12 object-contain mr-3 sm:mr-4"
                       />
                     )}
-                    <h3 className="text-xl font-semibold">{service.name}</h3>
+                    <h3 className="text-base sm:text-xl font-semibold">{service.name}</h3>
                 </div>
-                  <p className="text-gray-600">{service.description}</p>
+                  <p className="text-xs sm:text-sm md:text-base text-gray-600 line-clamp-2">{service.description}</p>
                   {service.price && service.isActive && (
-                    <div className="mt-4">
-                      <span className="text-orange-600 font-semibold">
+                    <div className="mt-3 sm:mt-4">
+                      <span className="text-orange-600 font-semibold text-sm sm:text-base">
                         {service.price} TL
                       </span>
-                      <span className="text-gray-500 text-sm">&apos;den başlayan fiyatlarla</span>
+                      <span className="text-gray-500 text-xs sm:text-sm">&apos;den başlayan fiyatlarla</span>
                     </div>
                   )}
                   {!service.isActive && (
-                    <div className="mt-4">
-                      <span className="bg-gray-100 text-gray-500 text-sm px-3 py-1 rounded-full">
+                    <div className="mt-3 sm:mt-4">
+                      <span className="bg-gray-100 text-gray-500 text-xs sm:text-sm px-2 sm:px-3 py-1 rounded-full">
                         Yakında
                       </span>
         </div>
@@ -2986,21 +3056,20 @@ export default function MusteriSayfasi() {
           <div className="flex justify-end mt-6">
               <button
                   onClick={() => {
-                if (selectedService) {
+                if (selectedService?._id) {
                   setShowModal(false);
                   setShowSummaryModal(true);
                   setCurrentStep(1);
-                } else {
-                  alert("Lütfen bir taşıma türü seçiniz.");
                 }
               }}
               className={`px-6 py-2 ${
-                selectedService 
-                  ? 'bg-orange-500 hover:bg-orange-600' 
-                  : 'bg-gray-300 cursor-not-allowed'
-              } text-white rounded-lg transition-colors`}
+                selectedService?._id 
+                  ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              } rounded-lg transition-colors`}
+              disabled={!selectedService?._id}
             >
-              Sonraki
+              {!selectedService?._id ? "Lütfen taşıma türü seçin" : "Sonraki"}
               </button>
             </div>
           </div>

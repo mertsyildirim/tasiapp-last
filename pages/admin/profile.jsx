@@ -35,12 +35,14 @@ export default function AdminProfile() {
     phone: '',
     oldPassword: '',
     newPassword: '',
-    confirmPassword: '',
-    company: ''
+    confirmPassword: ''
   });
   const [passwordStatus, setPasswordStatus] = useState('idle');
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [selectedTab, setSelectedTab] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showAddProfileModal, setShowAddProfileModal] = useState(false);
 
   // Debug console log
   useEffect(() => {
@@ -64,29 +66,44 @@ export default function AdminProfile() {
 
   // Kullanıcı verilerini yükle
   useEffect(() => {
-    if (session) {
-      console.log('Session Data:', session);
-      console.log('User Data:', session.user);
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await fetch('/api/admin/profile', {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
 
-    // Kullanıcı verilerini session'dan al
-    setUser(session.user);
-      
-      // Ad soyad için farklı alanları kontrol et
-      const fullName = session.user.name || 
-                       (session.user.firstName && session.user.lastName) ? 
-                       `${session.user.firstName} ${session.user.lastName}` : 
-                       'Kullanıcı';
-      
-    setFormData({
-        name: fullName,
-      email: session.user.email || '',
-      phone: session.user.phone || '',
-        company: session.user.company || session.user.companyName || '',
-        oldPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-    });
-    setLoading(false);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Kullanıcı verileri alınamadı');
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          setFormData(prev => ({
+            ...prev,
+            name: data.user.name || '',
+            email: data.user.email || '',
+            phone: data.user.phone || ''
+          }));
+        } else {
+          throw new Error(data.message || 'Kullanıcı verileri alınamadı');
+        }
+      } catch (error) {
+        console.error('Kullanıcı verisi çekilirken hata:', error);
+        setError(error.message || 'Kullanıcı verisi yüklenirken bir hata oluştu');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (session) {
+      fetchUserData();
     }
   }, [session]);
 
@@ -100,7 +117,7 @@ export default function AdminProfile() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
     setError(null);
 
     try {
@@ -109,24 +126,38 @@ export default function AdminProfile() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone
+        })
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.message || 'Profil güncellenirken bir hata oluştu');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Profil güncellenirken bir hata oluştu');
       }
 
-      setUser(data.user);
-      setIsEditing(false);
-      setError(null);
-      toast.success('Profil başarıyla güncellendi');
+      const data = await response.json();
+      
+      if (data.success) {
+        setFormData(prev => ({
+          ...prev,
+          name: data.user.name,
+          email: data.user.email,
+          phone: data.user.phone
+        }));
+        setIsEditing(false);
+        toast.success('Profil başarıyla güncellendi');
+      } else {
+        throw new Error(data.message || 'Profil güncellenirken bir hata oluştu');
+      }
     } catch (error) {
+      console.error('Profil güncellenirken hata:', error);
       setError(error.message);
       toast.error(error.message);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -219,22 +250,23 @@ export default function AdminProfile() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
         </div>
       </AdminLayout>
     );
   }
 
   return (
-    <AdminLayout>
-      <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold text-gray-800">Profil Yönetimi</h1>
+    <AdminLayout title="Profil Yönetimi">
+      <div className="container mx-auto px-4 py-6">
+        <div className="bg-white rounded-lg shadow-lg">
+          {/* Header kısmı */}
+          <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-6 py-4">
+            <div className="flex items-center justify-between">
+              <h1 className="text-2xl font-semibold text-gray-800">Profil Yönetimi</h1>
               <button
                 onClick={() => setIsEditing(!isEditing)}
-                className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
               >
                 {isEditing ? (
                   <>
@@ -248,125 +280,71 @@ export default function AdminProfile() {
                   </>
                 )}
               </button>
+            </div>
           </div>
 
-          {error && (
-            <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
-              {error}
-            </div>
-          )}
+          <div className="p-6">
+            {error && (
+              <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg">
+                {error}
+              </div>
+            )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Profil Bilgileri */}
+            <form onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                {/* Sol sütun */}
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ad Soyad
-                </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ad Soyad</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <FaUser className="text-gray-400" />
                       </div>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
+                      <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
                         disabled={!isEditing}
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                  />
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100"
+                      />
                     </div>
-              </div>
+                  </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                  E-posta
-                </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">E-posta</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <FaEnvelope className="text-gray-400" />
                       </div>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
                         disabled={!isEditing}
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                  />
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100"
+                      />
                     </div>
-              </div>
+                  </div>
+                </div>
 
+                {/* Sağ sütun */}
+                <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Telefon
-                </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <FaPhone className="text-gray-400" />
                       </div>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                        disabled={!isEditing}
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Şirket
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <FaBuilding className="text-gray-400" />
-                      </div>
                       <input
-                        type="text"
-                        name="company"
-                        value={formData.company}
+                        type="tel"
+                        name="phone"
+                        value={formData.phone}
                         onChange={handleInputChange}
                         disabled={!isEditing}
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-                      />
-                    </div>
-              </div>
-            </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                Rol
-              </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <FaUserCog className="text-gray-400" />
-                      </div>
-                      <input
-                        type="text"
-                        value={user?.role || 'Kullanıcı'}
-                        disabled
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md bg-gray-100"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Kullanıcı ID
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <FaIdCard className="text-gray-400" />
-                      </div>
-                      <input
-                        type="text"
-                        value={user?.id || 'N/A'}
-                        disabled
-                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md bg-gray-100"
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100"
                       />
                     </div>
                   </div>
@@ -374,11 +352,11 @@ export default function AdminProfile() {
               </div>
 
               {isEditing && (
-                <div className="flex justify-end">
+                <div className="flex justify-end mt-4">
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+                    className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
                   >
                     {saving ? (
                       <>
@@ -396,92 +374,91 @@ export default function AdminProfile() {
               )}
             </form>
 
-            <div className="mt-8 pt-8 border-t">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Şifre Değiştir</h2>
+            {/* Şifre Değiştirme Formu */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-800">Şifre Değiştir</h2>
+              </div>
               
               {passwordError && (
-                <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">
+                <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg">
                   {passwordError}
                 </div>
               )}
               
               {passwordSuccess && (
-                <div className="mb-4 p-4 bg-green-100 text-green-700 rounded-lg">
+                <div className="mb-6 p-4 bg-green-100 text-green-700 rounded-lg">
                   {passwordSuccess}
                 </div>
               )}
 
-              <form onSubmit={handlePasswordUpdate} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mevcut Şifre
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <FaLock className="text-gray-400" />
+              <form onSubmit={handlePasswordUpdate}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mevcut Şifre</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <FaLock className="text-gray-400" />
+                      </div>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="oldPassword"
+                        value={formData.oldPassword}
+                        onChange={handleInputChange}
+                        className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      >
+                        {showPassword ? (
+                          <FaEyeSlash className="text-gray-400" />
+                        ) : (
+                          <FaEye className="text-gray-400" />
+                        )}
+                      </button>
                     </div>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="oldPassword"
-                      value={formData.oldPassword}
-                      onChange={handleInputChange}
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    >
-                      {showPassword ? (
-                        <FaEyeSlash className="text-gray-400" />
-                      ) : (
-                        <FaEye className="text-gray-400" />
-                      )}
-                    </button>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Yeni Şifre</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <FaLock className="text-gray-400" />
+                      </div>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="newPassword"
+                        value={formData.newPassword}
+                        onChange={handleInputChange}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Yeni Şifre (Tekrar)</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <FaLock className="text-gray-400" />
+                      </div>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleInputChange}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Yeni Şifre
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <FaLock className="text-gray-400" />
-                    </div>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="newPassword"
-                      value={formData.newPassword}
-                      onChange={handleInputChange}
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Yeni Şifre (Tekrar)
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <FaLock className="text-gray-400" />
-                    </div>
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleInputChange}
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
+                <div className="flex justify-end mt-6">
                   <button
                     type="submit"
                     disabled={passwordStatus === 'submitting'}
-                    className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
+                    className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
                   >
                     {passwordStatus === 'submitting' ? (
                       <>

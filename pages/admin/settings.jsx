@@ -1672,6 +1672,32 @@ export default function SettingsPage() {
     }
   });
 
+  // Hizmet silme fonksiyonu - services state'ini ve diğer ilgili kodları kullanarak ekleyin
+  const handleDeleteService = async (serviceId) => {
+    if (window.confirm('Bu hizmeti silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
+      try {
+        const response = await fetch(`/api/admin/services/${serviceId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Hizmet silinirken bir hata oluştu');
+        }
+
+        // Başarılı silme işlemi sonrası state'i güncelle
+        setServices(services.filter(service => service._id !== serviceId));
+        toast.success('Hizmet başarıyla silindi');
+      } catch (error) {
+        console.error('Hizmet silme hatası:', error);
+        toast.error(error.message || 'Hizmet silinirken bir hata oluştu');
+      }
+    }
+  };
+
   return (
     <AdminLayout title="Sistem Ayarları" fixedHeader={true}>
       {/* Ayarlar Bölümü */}
@@ -2921,12 +2947,20 @@ export default function SettingsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button 
-                            onClick={() => handleEditClick(service)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Düzenle
-                          </button>
+                          <div className="flex items-center justify-end space-x-3">
+                            <button 
+                              onClick={() => handleEditClick(service)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              <FaEdit className="h-5 w-5" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteService(service._id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <FaTrash className="h-5 w-5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

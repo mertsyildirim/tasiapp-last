@@ -18,6 +18,7 @@ export default function AdminLayout({ children, title, fixedHeader = false }) {
   const [showProfileMenu, setShowProfileMenu] = useState(false)
   const router = useRouter()
   const { data: session, status } = useSession();
+  const [userName, setUserName] = useState('');
   
   // İstemci tarafında çalıştığımızı takip eden state
   const [isClient, setIsClient] = useState(false)
@@ -151,6 +152,28 @@ export default function AdminLayout({ children, title, fixedHeader = false }) {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showNotifications, showProfileMenu])
+
+  // Kullanıcı adını getir
+  useEffect(() => {
+    const fetchUserName = async () => {
+      try {
+        const response = await fetch('/api/admin/profile');
+        if (!response.ok) {
+          throw new Error('Kullanıcı bilgileri alınamadı');
+        }
+        const data = await response.json();
+        if (data.success) {
+          setUserName(data.user.name);
+        }
+      } catch (error) {
+        console.error('Kullanıcı adı alınırken hata:', error);
+      }
+    };
+
+    if (session) {
+      fetchUserName();
+    }
+  }, [session]);
 
   // Sidebar menü öğeleri
   const sidebarItems = [
@@ -430,8 +453,8 @@ export default function AdminLayout({ children, title, fixedHeader = false }) {
                                 {getNotificationIcon(notification)}
                               </div>
                               <div className="ml-3 w-0 flex-1">
-                                <p className="text-sm font-medium text-gray-900 truncate">{notification.text}</p>
-                                <p className="text-xs text-gray-500">{notification.time}</p>
+                                <p className="text-sm font-medium text-gray-900 truncate">{notification.title || notification.text}</p>
+                                <p className="text-xs text-gray-500">{new Date(notification.createdAt).toLocaleString('tr-TR')}</p>
                               </div>
                             </div>
                           </a>
@@ -467,7 +490,7 @@ export default function AdminLayout({ children, title, fixedHeader = false }) {
                     <FaUser className="h-4 w-4" />
                   </div>
                   <span className="hidden md:block text-sm font-medium text-gray-700">
-                    {session?.user?.name || 'Admin'}
+                    {userName || 'Admin'}
                   </span>
                 </button>
 
@@ -546,9 +569,9 @@ export default function AdminLayout({ children, title, fixedHeader = false }) {
                           {getNotificationIcon(notification)}
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-gray-800">{notification.text}</p>
-                          <p className="text-sm text-gray-600 mt-1">{notification.description}</p>
-                          <p className="text-xs text-gray-500 mt-2">{notification.time}</p>
+                          <p className="font-medium text-gray-800">{notification.title || notification.text}</p>
+                          <p className="text-sm text-gray-600 mt-1">{notification.message || notification.description}</p>
+                          <p className="text-xs text-gray-500 mt-2">{new Date(notification.createdAt).toLocaleString('tr-TR')}</p>
                         </div>
                         <a 
                           href={getNotificationRoute(notification)}
