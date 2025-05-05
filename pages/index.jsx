@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { FaTruck, FaBoxOpen, FaMapMarkedAlt, FaShieldAlt, FaClock, FaHandshake, FaLocationArrow, FaBuilding, FaHome, FaWarehouse, FaSpinner, FaPallet, FaBox, FaImage, FaTrash, FaMapMarkerAlt, FaCheck, FaStar, FaPhone, FaInfoCircle, FaCheckCircle, FaEnvelope, FaMapPin, FaFacebook, FaTwitter, FaInstagram, FaLinkedin, FaSnowflake, FaBolt, FaTools, FaLock, FaMoneyBillWave, FaMapMarked, FaArrowLeft, FaSignOutAlt, FaRoute, FaTimes, FaCalendar, FaUser, FaBars, FaEdit } from 'react-icons/fa'
-import { GoogleMap, useLoadScript, Marker, DirectionsRenderer, Autocomplete, StandaloneSearchBox, AdvancedMarkerElement } from '@react-google-maps/api'
+import { GoogleMap, useLoadScript, Marker, DirectionsRenderer, StandaloneSearchBox, AdvancedMarkerElement } from '@react-google-maps/api'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { useAuth } from '../lib/auth'
@@ -1325,33 +1325,18 @@ export default function MusteriSayfasi() {
                     Alınacak Adres
                   </label>
                   {isLoaded ? (
-                    <Autocomplete
-                      onLoad={onPickupLoad}
-                      onPlaceChanged={onPickupPlaceChanged}
-                      options={{
-                        componentRestrictions: { country: "tr" },
-                        types: ["address"], // Sadece address tipini kullan
-                        fields: ["formatted_address", "geometry", "name", "place_id"],
-                        bounds: {
-                          north: 42.1000, // Türkiye'nin kuzey sınırı
-                          south: 35.8000, // Türkiye'nin güney sınırı
-                          east: 44.8000,  // Türkiye'nin doğu sınırı
-                          west: 26.0000   // Türkiye'nin batı sınırı
-                        },
-                        strictBounds: true
-                      }}
-                    >
-                        <div>
+                    <div className="relative">
                       <input 
+                        id="pickup-place-autocomplete"
                         type="text" 
                         value={pickupAddress}
                         onChange={handlePickupInputChange}
                         onFocus={handlePickupFocus}
-                            placeholder="Alış noktası"
-                            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="Alış noktası"
+                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
-                        </div>
-                    </Autocomplete>
+                      {/* Burada loadPickupAutocomplete fonksiyonu çağrılacak - componentDidMount içinde */}
+                    </div>
                   ) : (
                     <input
                       type="text"
@@ -1372,26 +1357,18 @@ export default function MusteriSayfasi() {
                     Teslimat Noktası
                   </label>
                   {isLoaded ? (
-                    <Autocomplete
-                      onLoad={onDeliveryLoad}
-                      onPlaceChanged={onDeliveryPlaceChanged}
-                      options={{
-                        componentRestrictions: { country: "tr" },
-                        types: ["establishment", "geocode"],
-                        fields: ["formatted_address", "geometry", "name", "place_id"]
-                      }}
-                    >
-                      <div>
+                    <div className="relative">
                       <input
+                        id="delivery-place-autocomplete"
                         type="text"
                         value={deliveryAddress}
                         onChange={handleDeliveryInputChange}
                         onFocus={handleDeliveryFocus}
-                            placeholder="Teslimat noktası"
-                            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="Teslimat noktası"
+                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
-                        </div>
-                    </Autocomplete>
+                      {/* Burada loadDeliveryAutocomplete fonksiyonu çağrılacak - componentDidMount içinde */}
+                    </div>
                   ) : (
                     <input
                       type="text"
@@ -2550,6 +2527,88 @@ export default function MusteriSayfasi() {
     }
   };
 
+  useEffect(() => {
+    if (isLoaded && window.google) {
+      // Alınacak adres için PlaceAutocompleteElement
+      const pickupInput = document.getElementById('pickup-place-autocomplete');
+      if (pickupInput) {
+        const pickupAutocompleteOptions = {
+          componentRestrictions: { country: "tr" },
+          fields: ["address_components", "formatted_address", "geometry", "name", "place_id"],
+          bounds: {
+            north: 42.1000, // Türkiye'nin kuzey sınırı
+            south: 35.8000, // Türkiye'nin güney sınırı
+            east: 44.8000,  // Türkiye'nin doğu sınırı
+            west: 26.0000   // Türkiye'nin batı sınırı
+          },
+          strictBounds: true
+        };
+        
+        const pickupAutocomplete = new window.google.maps.places.Autocomplete(pickupInput, pickupAutocompleteOptions);
+        pickupAutocomplete.addListener('place_changed', () => {
+          const place = pickupAutocomplete.getPlace();
+          if (place.geometry) {
+            const location = place.geometry.location;
+            const coords = {
+              lat: location.lat(),
+              lng: location.lng()
+            };
+            setPickupMarker(coords);
+            setPickupCoords(coords);
+            setPickupAddress(place.formatted_address);
+
+            if (deliveryMarker && pickupAddress && deliveryAddress) {
+              setBothMarkersSelected(true);
+              updateRoute();
+              fitMapToMarkers();
+            }
+          }
+        });
+        
+        setPickupAutocomplete(pickupAutocomplete);
+      }
+      
+      // Teslimat noktası için PlaceAutocompleteElement
+      const deliveryInput = document.getElementById('delivery-place-autocomplete');
+      if (deliveryInput) {
+        const deliveryAutocompleteOptions = {
+          componentRestrictions: { country: "tr" },
+          fields: ["address_components", "formatted_address", "geometry", "name", "place_id"],
+          bounds: {
+            north: 42.1000, // Türkiye'nin kuzey sınırı
+            south: 35.8000, // Türkiye'nin güney sınırı
+            east: 44.8000,  // Türkiye'nin doğu sınırı
+            west: 26.0000   // Türkiye'nin batı sınırı
+          },
+          strictBounds: true
+        };
+        
+        const deliveryAutocomplete = new window.google.maps.places.Autocomplete(deliveryInput, deliveryAutocompleteOptions);
+        deliveryAutocomplete.addListener('place_changed', () => {
+          const place = deliveryAutocomplete.getPlace();
+          if (place.geometry) {
+            const location = place.geometry.location;
+            const coords = {
+              lat: location.lat(),
+              lng: location.lng()
+            };
+            setDeliveryMarker(coords);
+            setDeliveryCoords(coords);
+            setDeliveryAddress(place.formatted_address);
+
+            if (pickupMarker && pickupAddress && deliveryAddress) {
+              setBothMarkersSelected(true);
+              updateRoute();
+              fitMapToMarkers();
+            }
+          }
+        });
+        
+        setDeliveryAutocomplete(deliveryAutocomplete);
+      }
+    }
+  }, [isLoaded, deliveryMarker, pickupMarker, deliveryAddress, pickupAddress]);
+
   return (
     <main className={`min-h-screen bg-gray-100 flex flex-col ${showModal || showSummaryModal || showPhoneModal || showSearchingModal || showWaitingApprovalModal || showCarrierDetailsModal || showPaymentModal || showPaymentSuccessModal ? 'modal-blur' : ''}`}>
       <div className="flex-grow">
@@ -2766,33 +2825,18 @@ export default function MusteriSayfasi() {
                 <label className="block text-gray-700 font-bold mb-2">Alınacak Adres</label>
                 <div className="relative z-50">
                     {isLoaded ? (
-                    <Autocomplete
-                      onLoad={onPickupLoad}
-                      onPlaceChanged={onPickupPlaceChanged}
-                      options={{
-                        componentRestrictions: { country: "tr" },
-                        types: ["address"], // Sadece address tipini kullan
-                        fields: ["formatted_address", "geometry", "name", "place_id"],
-                        bounds: {
-                          north: 42.1000, // Türkiye'nin kuzey sınırı
-                          south: 35.8000, // Türkiye'nin güney sınırı
-                          east: 44.8000,  // Türkiye'nin doğu sınırı
-                          west: 26.0000   // Türkiye'nin batı sınırı
-                        },
-                        strictBounds: true
-                      }}
-                    >
-                        <div>
+                    <div className="relative">
                       <input 
+                        id="pickup-place-autocomplete"
                         type="text" 
                         value={pickupAddress}
                         onChange={handlePickupInputChange}
                         onFocus={handlePickupFocus}
-                            placeholder="Alış noktası"
-                            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="Alış noktası"
+                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
-                        </div>
-                    </Autocomplete>
+                      {/* Burada loadPickupAutocomplete fonksiyonu çağrılacak - componentDidMount içinde */}
+                    </div>
                     ) : (
                       <input
                         type="text"
@@ -2814,26 +2858,18 @@ export default function MusteriSayfasi() {
                 <label className="block text-gray-700 font-bold mb-2">Teslim Edilecek Adres</label>
                 <div className="relative z-40">
                     {isLoaded ? (
-                    <Autocomplete
-                      onLoad={onDeliveryLoad}
-                      onPlaceChanged={onDeliveryPlaceChanged}
-                      options={{
-                        componentRestrictions: { country: "tr" },
-                        types: ["establishment", "geocode"],
-                        fields: ["formatted_address", "geometry", "name", "place_id"]
-                      }}
-                    >
-                        <div>
-                      <input 
-                        type="text" 
+                    <div className="relative">
+                      <input
+                        id="delivery-place-autocomplete"
+                        type="text"
                         value={deliveryAddress}
                         onChange={handleDeliveryInputChange}
                         onFocus={handleDeliveryFocus}
-                            placeholder="Teslimat noktası"
-                            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="Teslimat noktası"
+                        className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
-                        </div>
-                    </Autocomplete>
+                      {/* Burada loadDeliveryAutocomplete fonksiyonu çağrılacak - componentDidMount içinde */}
+                    </div>
                     ) : (
                       <input
                         type="text"
