@@ -889,7 +889,15 @@ export default function SettingsPage() {
 
       // Eğer yeni packageTitles varsa onu kullan, yoksa eski yapıdan veri oluştur
       if (editingService.packageTitles) {
-        updateData.packageTitles = editingService.packageTitles;
+        updateData.packageTitles = editingService.packageTitles.map(title => ({
+          ...title,
+          subtitle: (title.subtitle || []).map(sub => ({
+            text: sub.text,
+            icon: sub.icon, // iconFile değil, sadece icon (url veya string)
+            ratio: sub.ratio,
+            relatedServiceId: sub.relatedServiceId
+          }))
+        }));
         
         // Geriye dönük uyumluluk için packageTitle1-4 değerlerini de ayarla
         if (editingService.packageTitles.length > 0) updateData.packageTitle1 = editingService.packageTitles[0].title;
@@ -3998,20 +4006,25 @@ export default function SettingsPage() {
                           </label>
                           <div className="flex items-center">
                             <input
-                              type="text"
-                              placeholder="Font Awesome icon kodu (örn: fa-truck)"
-                              value={title.icon || ''}
-                              onChange={(e) => handlePackageTitleChange(title.id, 'icon', e.target.value)}
+                              type="file"
+                              accept=".png,.jpg,.jpeg,.ico,.svg"
+                              onChange={e => handlePackageTitleChange(title.id, 'iconFile', e.target.files[0])}
                               className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                             />
-                            {title.icon && (
+                            {title.iconFile && (
                               <div className="ml-2 p-2 bg-gray-100 rounded-md">
-                                <i className={title.icon}></i>
+                                <img src={URL.createObjectURL(title.iconFile)} alt="Icon preview" className="w-8 h-8 object-contain" />
+                              </div>
+                            )}
+                            {/* Eğer eski icon url varsa göster */}
+                            {!title.iconFile && title.icon && (
+                              <div className="ml-2 p-2 bg-gray-100 rounded-md">
+                                <img src={title.icon} alt="Icon preview" className="w-8 h-8 object-contain" />
                               </div>
                             )}
                           </div>
                           <p className="text-xs text-gray-500 mt-1">
-                            Font Awesome iconları kullanılabilir (örn: fa-truck, fa-box, fa-weight)
+                            PNG, JPG, ICO veya SVG dosyası yükleyebilirsiniz.
                           </p>
                         </div>
                         
@@ -4038,12 +4051,36 @@ export default function SettingsPage() {
                                     </div>
                                     <div className="flex items-center">
                                       <input
-                                        type="text"
-                                        placeholder="Icon (örn: fa-tag)"
-                                        value={subtitleIcon}
-                                        onChange={(e) => handleSubtitleChange(title.id, subIndex, 'icon', e.target.value)}
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        placeholder="Oran (%)"
+                                        value={sub.ratio || ''}
+                                        onChange={e => handleSubtitleChange(title.id, subIndex, 'ratio', e.target.value)}
+                                        className="mr-2 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 w-16"
+                                      />
+                                      <select
+                                        value={sub.relatedServiceId || ''}
+                                        onChange={e => handleSubtitleChange(title.id, subIndex, 'relatedServiceId', e.target.value)}
+                                        className="mr-2 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 w-40"
+                                      >
+                                        <option value="">Diğer Hizmet Seç</option>
+                                        {services.filter(s => s._id !== editingService._id).map(service => (
+                                          <option key={service._id} value={service._id}>{service.name}</option>
+                                        ))}
+                                      </select>
+                                      <input
+                                        type="file"
+                                        accept=".png,.jpg,.jpeg,.ico,.svg"
+                                        onChange={e => handleSubtitleChange(title.id, subIndex, 'iconFile', e.target.files[0])}
                                         className="mr-2 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500 w-28"
                                       />
+                                      {sub.iconFile && (
+                                        <img src={URL.createObjectURL(sub.iconFile)} alt="Alt başlık icon" className="w-6 h-6 object-contain ml-2" />
+                                      )}
+                                      {!sub.iconFile && sub.icon && (
+                                        <img src={sub.icon} alt="Alt başlık icon" className="w-6 h-6 object-contain ml-2" />
+                                      )}
                                       <button
                                         onClick={() => handleDeleteSubtitle(title.id, subIndex)}
                                         className="text-red-500 hover:text-red-700 text-sm"
@@ -4132,20 +4169,19 @@ export default function SettingsPage() {
                     </label>
                     <div className="flex items-center">
                       <input
-                        type="text"
-                        placeholder="Font Awesome icon kodu (örn: fa-truck)"
-                        value={newPackageTitle.icon || ''}
-                        onChange={(e) => setNewPackageTitle({...newPackageTitle, icon: e.target.value})}
+                        type="file"
+                        accept=".png,.jpg,.jpeg,.ico,.svg"
+                        onChange={e => setNewPackageTitle({...newPackageTitle, iconFile: e.target.files[0]})}
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
-                      {newPackageTitle.icon && (
+                      {newPackageTitle.iconFile && (
                         <div className="ml-2 p-2 bg-gray-100 rounded-md">
-                          <i className={newPackageTitle.icon}></i>
+                          <img src={URL.createObjectURL(newPackageTitle.iconFile)} alt="Icon preview" className="w-8 h-8 object-contain" />
                         </div>
                       )}
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Font Awesome iconları kullanılabilir (örn: fa-truck, fa-box, fa-weight)
+                      PNG, JPG, ICO veya SVG dosyası yükleyebilirsiniz.
                     </p>
                   </div>
                 </div>

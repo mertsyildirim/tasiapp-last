@@ -11,6 +11,7 @@ import MainLayout from '../components/layout/MainLayout';
 import axios from 'axios';
 import { useSession, signOut } from 'next-auth/react';
 import UpgradeToCorporateModal from '../components/UpgradeToCorporateModal';
+import { toast } from 'react-hot-toast';
 
 // DefaultAvatar bileşeni
 const DefaultAvatar = ({ name = '', size = 96, className = '' }) => {
@@ -72,6 +73,26 @@ export default function Profile() {
     companyDistrict: '',
     companyCity: ''
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [userData, setUserData] = useState(null);
+  const [userInfo, setUserInfo] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    address: '',
+    district: '',
+    city: '',
+    companyName: '',
+    taxOffice: '',
+    taxNumber: '',
+    companyAddress: '',
+    companyDistrict: '',
+    companyCity: '',
+    accountType: 'individual',
+    notifications: true,
+    language: 'tr'
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
   // API çağrıları için referans stabilliği sağlayacak şekilde fetchShipmentHistory tanımlandı
   const fetchShipmentHistory = useCallback(async () => {
@@ -106,141 +127,169 @@ export default function Profile() {
     }
   }, []);
 
-  // Auth durumu değiştiğinde kullanıcı yönlendirmelerini yap
+  // Kullanıcı bilgilerini getir
   useEffect(() => {
-    console.log("Profile - Session Status:", status, "Session:", session);
+    console.log('Profile sayfası - Auth Status:', status);
     
-    if (status === 'unauthenticated') {
-      console.log("Profile - Unauthenticated, redirecting to login");
-      router.replace('/login');
+    // Loading state'de iken hiçbir şey yapma
+    if (status === 'loading') {
+      console.log('Profile sayfası - Oturum durumu yükleniyor...');
+      return;
     }
-  }, [status, session, router]);
-
-  // Kullanıcı verilerini yükle
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        if (status === 'authenticated' && session) {
-          // Kullanıcı verilerini console.log ile kontrol et
-          console.log('Session user data:', session.user);
+    
+    // Session yoksa ve authentication tamamlandıysa login sayfasına yönlendir
+    if (status === 'unauthenticated') {
+      console.log('Profil sayfası - Kullanıcı girişi yok, yönlendiriliyor');
+      router.push('/login?callbackUrl=' + encodeURIComponent('/profile'));
+      return;
+    }
+    
+    // Session varsa kullanıcı bilgilerini getir
+    if (status === 'authenticated' && session?.user?.id) {
+      setIsLoading(true);
+      console.log('Profil sayfası - Session bilgileri:', {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        expires: session.expires
+      });
+      
+      fetch('/api/users/profile', {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include' // Cookie'leri gönder
+      })
+        .then(response => {
+          console.log('Profil API yanıt status:', response.status);
+          if (!response.ok) {
+            if (response.status === 401) {
+              throw new Error('Oturum bilgisi bulunamadı, yeniden giriş yapmalısınız');
+            } else {
+              throw new Error(`API yanıt hatası: ${response.status}`);
+            }
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('Profil bilgileri başarıyla alındı');
+          setUserData(data);
+          setLoading(false); // Global loading state'i kapat
           
-          // API'den en güncel kullanıcı verilerini çek
-          const response = await axios.get('/api/users/profile');
-          const userData = response.data;
-          console.log('User data from API:', userData);
-          
-          // Form verilerini doldur
-          setFormData({
-            firstName: userData.firstName || session.user.name?.split(' ')[0] || '',
-            lastName: userData.lastName || session.user.name?.split(' ')[1] || '',
-            email: userData.email || session.user.email || '',
-            phone: userData.phone || session.user.phone || '',
-            address: userData.address || '',
-            district: userData.district || '',
-            city: userData.city || '',
-            accountType: userData.accountType || 'INDIVIDUAL',
-            status: userData.status || 'ACTIVE',
-            notifications: userData.notifications || true,
-            language: userData.language || 'tr',
-            taxNumber: userData.taxNumber || '',
-            billingAddress: userData.billingAddress || '',
-            companyName: userData.companyName || '',
-            taxOffice: userData.taxOffice || '',
-            companyAddress: userData.companyAddress || '',
-            isFreelance: userData.isFreelance || false,
-            companyDistrict: userData.companyDistrict || '',
-            companyCity: userData.companyCity || ''
+          // Form alanlarını doldur
+          setUserInfo({
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            phone: data.phone || '',
+            address: data.address || '',
+            district: data.district || '',
+            city: data.city || '',
+            companyName: data.companyName || '',
+            taxOffice: data.taxOffice || '',
+            taxNumber: data.taxNumber || '',
+            companyAddress: data.companyAddress || '',
+            companyDistrict: data.companyDistrict || '',
+            companyCity: data.companyCity || '',
+            accountType: data.accountType || 'individual',
+            notifications: data.notifications || true,
+            language: data.language || 'tr'
           });
           
-          // Profil fotoğrafı
-          if (userData.avatarUrl) {
-            setProfileImage(userData.avatarUrl);
+          // Form verilerini de güncelle
+          setFormData({
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            email: data.email || session.user.email || '',
+            phone: data.phone || session.user.phone || '',
+            address: data.address || '',
+            district: data.district || '',
+            city: data.city || '',
+            accountType: data.accountType || 'individual',
+            status: data.status || 'ACTIVE',
+            notifications: data.notifications || true,
+            language: data.language || 'tr',
+            taxNumber: data.taxNumber || '',
+            billingAddress: data.billingAddress || '',
+            companyName: data.companyName || '',
+            taxOffice: data.taxOffice || '',
+            companyAddress: data.companyAddress || '',
+            companyDistrict: data.companyDistrict || '',
+            companyCity: data.companyCity || ''
+          });
+          
+          setIsLoading(false);
+          setError(null);
+        })
+        .catch(error => {
+          console.error('Profil bilgileri alınırken hata oluştu:', error);
+          toast.error(error.message || 'Profil bilgileri alınamadı');
+          setError(error.message || 'Profil bilgileri alınamadı');
+          setLoading(false); // Global loading state'i kapat
+          setIsLoading(false);
+          
+          // Kimlik doğrulama hatası varsa yeniden giriş yapmaya yönlendir
+          if (error.message.includes('Oturum bilgisi bulunamadı')) {
+            signOut({ redirect: false }).then(() => {
+              router.push('/login?callbackUrl=' + encodeURIComponent('/profile') + '&error=session_expired');
+            });
           }
-          
-          // Taşıma geçmişini çek
-          fetchShipmentHistory();
-          
-          // Fatura bilgilerini çek
-          fetchInvoices();
-          
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Kullanıcı verileri alınırken hata:', error);
-        setError('Kullanıcı verileri alınırken bir hata oluştu');
-        setLoading(false);
-      }
-    };
-    
-    if (status === 'authenticated') {
-      fetchUserData();
+        });
     }
-  }, [status, session, fetchShipmentHistory, fetchInvoices]);
+  }, [status, session, router]); // session.user.id yerine sadece session ve status'e bağlı
+
+  // Profil bilgilerini güncelle
+  const updateProfile = async (e) => {
+    e.preventDefault();
+    console.log('Profil güncelleme başlatılıyor:', userInfo);
+    
+    setIsSaving(true);
+    
+    try {
+      const response = await fetch('/api/users/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userInfo),
+      });
+      
+      console.log('Profil güncelleme yanıt status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`API yanıt hatası: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Profil güncelleme sonucu:', result);
+      
+      if (result.success) {
+        toast.success(result.message || 'Profil başarıyla güncellendi');
+        // Form verilerini de güncelle
+        setFormData(prev => ({
+          ...prev,
+          ...userInfo
+        }));
+        // Düzenleme modunu kapat
+        setIsEditing(false);
+      } else {
+        toast.error(result.message || 'Profil güncellenirken bir hata oluştu');
+      }
+    } catch (error) {
+      console.error('Profil güncelleme hatası:', error);
+      toast.error('Profil güncellenirken bir hata oluştu: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Form değişikliklerini izleme
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+    setUserInfo(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-  };
-
-  // Form gönderimi - profil bilgilerini güncelleme
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    try {
-      console.log('Gönderilen veriler:', formData);
-      // API'ye profil güncellemesi gönder
-      const response = await axios.put('/api/users/profile', formData);
-      
-      if (response.data.success) {
-        setIsEditing(false);
-        setError(null);
-        
-        // Güncellenmiş kullanıcı bilgilerini al
-        const userResponse = await axios.get('/api/users/profile');
-        if (userResponse.data) {
-          const updatedUser = userResponse.data;
-          console.log('Güncellenmiş kullanıcı verileri:', updatedUser);
-          
-          // FormData'yı güncellenmiş kullanıcı verileriyle güncelle
-          setFormData({
-            firstName: updatedUser.firstName || '',
-            lastName: updatedUser.lastName || '',
-            email: updatedUser.email || '',
-            phone: updatedUser.phone || '',
-            address: updatedUser.address || '',
-            district: updatedUser.district || '',
-            city: updatedUser.city || '',
-            accountType: updatedUser.accountType || 'INDIVIDUAL',
-            status: updatedUser.status || 'ACTIVE',
-            notifications: updatedUser.notifications || true,
-            language: updatedUser.language || 'tr',
-            taxNumber: updatedUser.taxNumber || '',
-            billingAddress: updatedUser.billingAddress || '',
-            companyName: updatedUser.companyName || '',
-            taxOffice: updatedUser.taxOffice || '',
-            companyAddress: updatedUser.companyAddress || '',
-            isFreelance: updatedUser.isFreelance || false,
-            companyDistrict: updatedUser.companyDistrict || '',
-            companyCity: updatedUser.companyCity || ''
-          });
-          
-          // Başarı mesajı göster
-          alert('Profil başarıyla güncellendi');
-        }
-      } else {
-        setError(response.data.message || 'Profil güncellenirken bir hata oluştu');
-      }
-    } catch (err) {
-      console.error('Profil güncellenirken hata:', err);
-      setError(err.response?.data?.message || 'Profil güncellenirken bir hata oluştu');
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Çıkış işlemi
@@ -250,7 +299,7 @@ export default function Profile() {
 
   const handleUpgradeSuccess = async (updatedUser) => {
     // Form verilerini güncelle
-    setFormData(prev => ({
+    setUserInfo(prev => ({
       ...prev,
       ...updatedUser
     }));
@@ -258,7 +307,7 @@ export default function Profile() {
     // Kullanıcı verilerini yeniden yükle
     const userResponse = await axios.get('/api/users/profile');
     if (userResponse.data) {
-      setFormData(prev => ({
+      setUserInfo(prev => ({
         ...prev,
         ...userResponse.data
       }));
@@ -508,7 +557,7 @@ export default function Profile() {
                     </button>
                   </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-6">
+                  <form onSubmit={updateProfile} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
@@ -518,7 +567,7 @@ export default function Profile() {
                           type="text"
                           id="firstName"
                           name="firstName"
-                          value={formData.firstName}
+                          value={userInfo.firstName}
                           onChange={handleInputChange}
                           disabled={!isEditing}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
@@ -532,7 +581,7 @@ export default function Profile() {
                           type="text"
                           id="lastName"
                           name="lastName"
-                          value={formData.lastName}
+                          value={userInfo.lastName}
                           onChange={handleInputChange}
                           disabled={!isEditing}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
@@ -546,7 +595,7 @@ export default function Profile() {
                           type="email"
                           id="email"
                           name="email"
-                          value={formData.email}
+                          value={userInfo.email}
                           onChange={handleInputChange}
                           disabled={!isEditing}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
@@ -560,7 +609,7 @@ export default function Profile() {
                           type="tel"
                           id="phone"
                           name="phone"
-                          value={formData.phone}
+                          value={userInfo.phone}
                           onChange={handleInputChange}
                           disabled={!isEditing}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
@@ -577,7 +626,7 @@ export default function Profile() {
                               type="text"
                               id="district"
                               name="district"
-                              value={formData.district}
+                              value={userInfo.district}
                               onChange={handleInputChange}
                               disabled={!isEditing}
                               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
@@ -591,7 +640,7 @@ export default function Profile() {
                               type="text"
                               id="city"
                               name="city"
-                              value={formData.city}
+                              value={userInfo.city}
                               onChange={handleInputChange}
                               disabled={!isEditing}
                               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
@@ -604,7 +653,7 @@ export default function Profile() {
                             <textarea
                               id="address"
                               name="address"
-                              value={formData.address}
+                              value={userInfo.address}
                               onChange={handleInputChange}
                               disabled={!isEditing}
                               rows={3}
@@ -641,7 +690,7 @@ export default function Profile() {
                     </button>
                   </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-6">
+                  <form onSubmit={updateProfile} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="md:col-span-2">
                         <label htmlFor="companyName" className="block text-sm font-medium text-gray-700">
@@ -651,7 +700,7 @@ export default function Profile() {
                           type="text"
                           id="companyName"
                           name="companyName"
-                          value={formData.companyName}
+                          value={userInfo.companyName}
                           onChange={handleInputChange}
                           disabled={!isEditing}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
@@ -665,7 +714,7 @@ export default function Profile() {
                           type="text"
                           id="taxOffice"
                           name="taxOffice"
-                          value={formData.taxOffice}
+                          value={userInfo.taxOffice}
                           onChange={handleInputChange}
                           disabled={!isEditing}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
@@ -679,7 +728,7 @@ export default function Profile() {
                           type="text"
                           id="taxNumber"
                           name="taxNumber"
-                          value={formData.taxNumber}
+                          value={userInfo.taxNumber}
                           onChange={handleInputChange}
                           disabled={!isEditing}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
@@ -692,7 +741,7 @@ export default function Profile() {
                         <textarea
                           id="companyAddress"
                           name="companyAddress"
-                          value={formData.companyAddress}
+                          value={userInfo.companyAddress}
                           onChange={handleInputChange}
                           disabled={!isEditing}
                           rows={3}
@@ -707,7 +756,7 @@ export default function Profile() {
                           type="text"
                           id="companyCity"
                           name="companyCity"
-                          value={formData.companyCity}
+                          value={userInfo.companyCity}
                           onChange={handleInputChange}
                           disabled={!isEditing}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
@@ -721,7 +770,7 @@ export default function Profile() {
                           type="text"
                           id="companyDistrict"
                           name="companyDistrict"
-                          value={formData.companyDistrict}
+                          value={userInfo.companyDistrict}
                           onChange={handleInputChange}
                           disabled={!isEditing}
                           className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
@@ -776,13 +825,13 @@ export default function Profile() {
                       <button
                         type="button"
                         className={`${
-                          formData.notifications ? 'bg-orange-600' : 'bg-gray-200'
+                          userInfo.notifications ? 'bg-orange-600' : 'bg-gray-200'
                         } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2`}
-                        onClick={() => handleInputChange({ target: { name: 'notifications', type: 'checkbox', checked: !formData.notifications } })}
+                        onClick={() => handleInputChange({ target: { name: 'notifications', type: 'checkbox', checked: !userInfo.notifications } })}
                       >
                         <span
                           className={`${
-                            formData.notifications ? 'translate-x-5' : 'translate-x-0'
+                            userInfo.notifications ? 'translate-x-5' : 'translate-x-0'
                           } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
                         />
                       </button>
@@ -794,7 +843,7 @@ export default function Profile() {
                       </div>
                       <select
                         name="language"
-                        value={formData.language}
+                        value={userInfo.language}
                         onChange={handleInputChange}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
                       >

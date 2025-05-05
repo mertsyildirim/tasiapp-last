@@ -163,7 +163,10 @@ export default async function handler(req, res) {
     if (req.method === 'PATCH') {
       const { requestId, modalType, price, updateData = {} } = req.body;
 
+      console.log('PATCH isteği alındı:', req.body);
+
       if (!requestId) {
+        console.error('Request ID eksik:', req.body);
         return res.status(400).json({
           success: false,
           message: 'Talep ID zorunludur.'
@@ -173,6 +176,12 @@ export default async function handler(req, res) {
       try {
         let status = '';
         let additionalData = { ...updateData };
+
+        // currentStep değeri geldiyse bunu additionalData'ya ekle
+        if (req.body.currentStep !== undefined) {
+          additionalData.currentStep = req.body.currentStep;
+          console.log(`Step güncelleniyor: ${requestId} -> ${req.body.currentStep}`);
+        }
 
         // Modal tipine göre güncelleme
         if (modalType) {
@@ -215,8 +224,33 @@ export default async function handler(req, res) {
         console.log('Güncellenecek talep ID:', requestId);
         console.log('Güncellenecek veriler:', additionalData);
 
+        // ID formatını kontrol et
+        let query = { id: requestId };
+
+        // ObjectId kontrolü
+        if (ObjectId.isValid(requestId)) {
+          try {
+            // Önce string ID ile dene
+            const stringCheck = await db.collection('requests').findOne({ id: requestId });
+            if (stringCheck) {
+              console.log('String ID ile talep bulundu');
+              query = { id: requestId };
+            } else {
+              // String ID ile bulunamadıysa ObjectId ile dene
+              console.log('ObjectId formatına dönüştürülüyor');
+              query = { _id: new ObjectId(requestId) };
+            }
+          } catch (err) {
+            console.error('ID dönüşümü hatası:', err);
+            // Hata olursa string ID kullanalım
+            query = { id: requestId };
+          }
+        }
+
+        console.log('Kullanılan sorgu:', query);
+
         const result = await db.collection('requests').updateOne(
-          { id: requestId },
+          query,
           { $set: additionalData }
         );
 
@@ -261,6 +295,146 @@ export default async function handler(req, res) {
       
       console.log('Gelen request data:', requestData);
       
+      // HandleContinueToStep2'den gelen istekleri tespit et
+      const isFromHandleContinueToStep2 = requestData.status === 'waiting-approve' && 
+                                         requestData.packageInfo;
+      
+      // HandleContinueToStep2'den gelen bir istek ise, PATCH gibi davran (güncelleme yap)
+      if (isFromHandleContinueToStep2) {
+        console.log('HandleContinueToStep2 fonksiyonundan gelen POST isteği tespit edildi, mevcut kaydı güncelleyecek');
+        
+        try {
+          // Kullanıcının requestId göndermesi durumunda onu kullan
+          let requestId = requestData.requestId || null;
+          
+          // RequestId frontendden gönderilmemiş olabilir, body içindeki veriyi analiz edelim
+          if (!requestId) {
+            // Request body'sinde herhangi bir key içinde ID bulunabilir mi kontrol edelim
+            const bodyStr = JSON.stringify(requestData);
+            const tlMatches = bodyStr.match(/TL-\d+/g);
+            if (tlMatches && tlMatches.length > 0) {
+              requestId = tlMatches[0];
+              console.log('Body içinde tespit edilen requestId:', requestId);
+            }
+          }
+          
+          let existingRequest = null;
+          
+          if (requestId) {
+            // Gönderilen ID ile direkt arama yap
+            console.log('Kullanıcının gönderdiği ID ile arama yapılıyor:', requestId);
+            
+            // ID formatını kontrol et
+            let query = { id: requestId };
+            if (ObjectId.isValid(requestId)) {
+              try {
+                // Önce string ID ile dene
+                const stringCheck = await db.collection('requests').findOne({ id: requestId });
+                if (stringCheck) {
+                  query = { id: requestId };
+                } else {
+                  // String ID ile bulunamadıysa ObjectId ile dene
+                  query = { _id: new ObjectId(requestId) };
+                }
+              } catch (err) {
+                console.error('ID dönüşümü hatası:', err);
+                // Hata olursa string ID kullanalım
+                query = { id: requestId };
+              }
+            }
+            
+            existingRequest = await db.collection('requests').findOne(query);
+          }
+          
+          // ID ile bulunamazsa ya da ID gönderilmemişse, telefon numarasına göre en son kaydı bul
+          if (!existingRequest && requestData.customerPhone) {
+            console.log('Telefon numarasına göre en son talep aranıyor:', requestData.customerPhone);
+            
+            const lastRequest = await db.collection('requests')
+              .find({ customerPhone: requestData.customerPhone })
+              .sort({ createdAt: -1 })
+              .limit(1)
+              .toArray();
+              
+            if (lastRequest.length > 0) {
+              existingRequest = lastRequest[0];
+            }
+          }
+          
+          if (!existingRequest) {
+            console.log('Önceki kayıt bulunamadı, yeni kayıt oluşturuluyor...');
+            // Normal post işlemine devam et - bu durumda bloğu terk et
+          } else {
+            // Mevcut kaydı güncelle
+            console.log('Güncellenecek mevcut talep:', existingRequest.id);
+            
+            // Güncellenecek veriler
+            const updateData = {
+              updatedAt: new Date(),
+              currentStep: 2,
+              
+              // Taşıma detaylarını güncelle
+              packageInfo: requestData.packageInfo || {},
+              packageImages: requestData.packageImages || [],
+              packageCount: requestData.packageCount || 1,
+              packageWeight: requestData.packageWeight || 0,
+              packageVolume: requestData.packageVolume || 0,
+              
+              // İçerik Detayları
+              contentDetails: {
+                weight: requestData.contentDetails?.weight || existingRequest.contentDetails?.weight || 0,
+                volume: requestData.contentDetails?.volume || existingRequest.contentDetails?.volume || 0,
+                pieces: requestData.contentDetails?.pieces || existingRequest.contentDetails?.pieces || 0,
+                description: requestData.contentDetails?.description || existingRequest.contentDetails?.description || '',
+                specialNotes: requestData.contentDetails?.specialNotes || existingRequest.contentDetails?.specialNotes || '',
+                selectedSubtitle: requestData.packageInfo || existingRequest.contentDetails?.selectedSubtitle || {}
+              },
+              
+              // Notlar
+              notes: requestData.notes || existingRequest.notes || '',
+              
+              // Yükleme bilgileri
+              loadingDateTime: requestData.loadingDate || existingRequest.loadingDateTime,
+              selectedDate: requestData.selectedDate || existingRequest.selectedDate || '',
+              selectedTime: requestData.selectedTime || existingRequest.selectedTime || ''
+            };
+            
+            const result = await db.collection('requests').updateOne(
+              { _id: existingRequest._id },
+              { $set: updateData }
+            );
+            
+            if (result.modifiedCount === 1) {
+              console.log('Talep başarıyla güncellendi');
+              // Güncellenmiş talebi getir
+              const updatedRequest = await db.collection('requests').findOne({ _id: existingRequest._id });
+              
+              return res.status(200).json({
+                success: true,
+                message: 'Talep detayları başarıyla güncellendi',
+                request: {
+                  ...updatedRequest,
+                  id: updatedRequest.id || updatedRequest._id.toString()
+                }
+              });
+            } else {
+              console.error('Talep güncellenemedi:', result);
+              return res.status(500).json({
+                success: false,
+                message: 'Talep güncellenirken bir hata oluştu'
+              });
+            }
+          }
+        } catch (err) {
+          console.error('Talep güncellenirken hata:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'Talep güncellenirken bir hata oluştu',
+            error: err.message
+          });
+        }
+      }
+      
       // Zorunlu alanlar kontrolü
       if (!requestData.customerPhone || !requestData.pickupLocation || !requestData.deliveryLocation) {
         return res.status(400).json({
@@ -280,15 +454,48 @@ export default async function handler(req, res) {
         });
         console.log('Bulunan müşteri:', customer);
 
+        // Müşteri bilgisi ve adı
+        let customerData = customer;
+        let customerFullName = '';
+        
+        // Müşteri bulunamadıysa otomatik oluştur
         if (!customer) {
-          return res.status(404).json({
-            success: false,
-            message: 'Müşteri bulunamadı.'
-          });
+          console.log('Müşteri bulunamadı, otomatik oluşturuluyor...');
+          
+          // Yeni müşteri objesi
+          const newCustomer = {
+            phone: requestData.customerPhone,
+            firstName: requestData.customerName ? requestData.customerName.split(' ')[0] : 'Misafir',
+            lastName: requestData.customerName ? requestData.customerName.split(' ').slice(1).join(' ') : 'Kullanıcı',
+            email: '',
+            address: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            status: 'active',
+            type: 'customer'
+          };
+          
+          try {
+            // Müşteriyi veritabanına ekle
+            const result = await db.collection('customers').insertOne(newCustomer);
+            console.log('Yeni müşteri oluşturuldu:', result.insertedId);
+            
+            // Oluşturulan müşteriyi kullan
+            customerData = {
+              ...newCustomer,
+              _id: result.insertedId
+            };
+          } catch (err) {
+            console.error('Müşteri oluşturulurken hata:', err);
+            return res.status(500).json({
+              success: false,
+              message: 'Müşteri kaydı oluşturulamadı'
+            });
+          }
         }
-
+        
         // Müşteri adını oluştur
-        const customerFullName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim();
+        customerFullName = `${customerData.firstName || ''} ${customerData.lastName || ''}`.trim();
 
         // Talep ID oluştur
         console.log('Son talep ID\'si aranıyor...');
@@ -319,9 +526,9 @@ export default async function handler(req, res) {
           updatedAt: new Date(),
 
           // Müşteri Bilgileri
-          customerId: customer._id,
+          customerId: customerData._id,
           customerName: customerFullName,
-          customerPhone: customer.phone,
+          customerPhone: customerData.phone,
 
           // Lokasyon Bilgileri
           pickupLocation: requestData.pickupLocation,
@@ -347,7 +554,7 @@ export default async function handler(req, res) {
           selectedTime: requestData.selectedTime || '',
 
           // Paket/İçerik Bilgileri
-          packageInfo: requestData.packageInfo || [],
+          packageInfo: requestData.packageInfo || {},
           packageImages: requestData.packageImages || [],
           packageCount: requestData.packageCount || 1,
           packageWeight: requestData.packageWeight || 0,
@@ -359,8 +566,12 @@ export default async function handler(req, res) {
             volume: requestData.contentDetails?.volume || 0,
             pieces: requestData.contentDetails?.pieces || 0,
             description: requestData.contentDetails?.description || '',
-            specialNotes: requestData.contentDetails?.specialNotes || ''
+            specialNotes: requestData.contentDetails?.specialNotes || '',
+            selectedSubtitle: requestData.packageInfo || {}
           },
+          
+          // Not Bilgisi
+          notes: requestData.notes || '',
 
           // Taşıyıcı Bilgileri
           carrier: requestData.carrier || null,
@@ -372,13 +583,12 @@ export default async function handler(req, res) {
           paymentDate: null,
 
           // Durum Bilgileri
-          currentStep: 1,
+          currentStep: requestData.currentStep || 1,
           isApproved: false,
           isCompleted: false,
 
           // Sistem Bilgileri
           lastUpdatedBy: requestData.lastUpdatedBy || null,
-          notes: requestData.notes || '',
           tags: requestData.tags || []
         };
         
@@ -420,7 +630,6 @@ export default async function handler(req, res) {
       success: false,
       message: `Method ${req.method} not allowed`
     });
-    
   } catch (error) {
     console.error('API hatası:', error);
     return res.status(500).json({
@@ -428,4 +637,4 @@ export default async function handler(req, res) {
       message: 'Sunucu hatası: ' + (error.message || 'Bilinmeyen bir hata oluştu')
     });
   }
-} 
+}

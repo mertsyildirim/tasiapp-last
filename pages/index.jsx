@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { FaTruck, FaBoxOpen, FaMapMarkedAlt, FaShieldAlt, FaClock, FaHandshake, FaLocationArrow, FaBuilding, FaHome, FaWarehouse, FaSpinner, FaPallet, FaBox, FaImage, FaTrash, FaMapMarkerAlt, FaCheck, FaStar, FaPhone, FaInfoCircle, FaCheckCircle, FaEnvelope, FaMapPin, FaFacebook, FaTwitter, FaInstagram, FaLinkedin, FaSnowflake, FaBolt, FaTools, FaLock, FaMoneyBillWave, FaMapMarked, FaArrowLeft, FaSignOutAlt, FaRoute, FaTimes, FaCalendar, FaUser, FaBars } from 'react-icons/fa'
+import { FaTruck, FaBoxOpen, FaMapMarkedAlt, FaShieldAlt, FaClock, FaHandshake, FaLocationArrow, FaBuilding, FaHome, FaWarehouse, FaSpinner, FaPallet, FaBox, FaImage, FaTrash, FaMapMarkerAlt, FaCheck, FaStar, FaPhone, FaInfoCircle, FaCheckCircle, FaEnvelope, FaMapPin, FaFacebook, FaTwitter, FaInstagram, FaLinkedin, FaSnowflake, FaBolt, FaTools, FaLock, FaMoneyBillWave, FaMapMarked, FaArrowLeft, FaSignOutAlt, FaRoute, FaTimes, FaCalendar, FaUser, FaBars, FaEdit } from 'react-icons/fa'
 import { GoogleMap, useLoadScript, Marker, DirectionsRenderer, Autocomplete, StandaloneSearchBox, AdvancedMarkerElement } from '@react-google-maps/api'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -183,7 +183,8 @@ export default function MusteriSayfasi() {
     volume: '',
     pieces: '',
     description: '',
-    specialNotes: ''
+    specialNotes: '',
+    notes: '' // Not alanı için yeni property
   });
   const [modalStep, setModalStep] = useState(0);
   const { isAuthenticated, user, logout } = useAuth();
@@ -277,6 +278,20 @@ export default function MusteriSayfasi() {
 
   // Ana bileşenin başında yeni state ekleyelim
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  
+  // Yeni modallar için state'ler
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [showRegisterModal, setShowRegisterModal] = useState(false)
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [registerName, setRegisterName] = useState('')
+  const [registerEmail, setRegisterEmail] = useState('')
+  const [registerPhone, setRegisterPhone] = useState('')
+  const [registerPassword, setRegisterPassword] = useState('')
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [isRegistering, setIsRegistering] = useState(false)
+  const [loginError, setLoginError] = useState('')
+  const [registerError, setRegisterError] = useState('')
 
   // Yeni useEffect - dışarı tıklandığında dropdown'ı kapatan fonksiyon
   // Ana bileşenin başında yeni state ekleyelim
@@ -343,17 +358,13 @@ export default function MusteriSayfasi() {
     
     if (selectedService?.packageTitles) {
       for (const packageTitle of selectedService.packageTitles) {
-        // Sadece alt başlıkları olan başlıkları kontrol et
-        if (packageTitle.type === 'checkbox' && 
-            packageTitle.subtitle && 
-            packageTitle.subtitle.length > 0) {
-            
+        // Alt başlığı olan tüm ana başlıklar için kontrol
+        if (packageTitle.subtitle && packageTitle.subtitle.length > 0) {
           // Bu başlığın alt başlıklarından herhangi biri seçili mi?
           const hasSelectedSubtitle = packageTitle.subtitle.some((_, subIndex) => {
             const subId = `${packageTitle.id}_sub_${subIndex}`;
             return packageInfo[subId] === 'true';
           });
-          
           if (!hasSelectedSubtitle) {
             validationPassed = false;
             warningMessage = `"${packageTitle.title}" için lütfen bir seçenek işaretleyin.`;
@@ -379,12 +390,14 @@ export default function MusteriSayfasi() {
       console.log('Transport Type:', selectedTransportType);
 
       // Tarih ve saati birleştir
-      const loadingDateTime = selectedDate && selectedTime 
-        ? `${selectedDate}T${selectedTime}:00` 
-        : new Date().toISOString();
+      const loadingDateTime = selectedTimeOption === 'asap' 
+        ? '2-3 saat içinde'
+        : selectedDate && selectedTime 
+          ? `${selectedDate}T${selectedTime}:00` 
+          : new Date().toISOString();
 
       const requestData = {
-        customerName: user?.name || session?.user?.name || 'Test Kullanıcı',
+        customerName: user?.name || session?.user?.name || 'Üye Olmayan Kullanıcı',
         customerPhone: user?.phone || session?.user?.phone || '5551112233',
         pickupLocation: pickupAddress,
         deliveryLocation: deliveryAddress,
@@ -393,10 +406,11 @@ export default function MusteriSayfasi() {
         distance: distance || 0,
         status: 'waiting-approve', // 'new' -> 'waiting-approve' olarak değiştirildi
         transportType: selectedTransportType || '',
-        packageInfo: Array.isArray(packageInfo) ? packageInfo : Object.values(packageInfo || {}),
+        packageInfo: packageInfo || {},
         loadingDate: loadingDateTime,
         description: contentDetails?.description || '',
         specialNotes: contentDetails?.specialNotes || '',
+        notes: contentDetails?.notes || '', // Not alanı eklendi
         weight: contentDetails?.weight || 0,
         volume: contentDetails?.volume || 0,
         pieces: contentDetails?.pieces || 0
@@ -432,6 +446,11 @@ export default function MusteriSayfasi() {
 
       // Başarı mesajı göster
       toast.success('Taşıma detayları başarıyla kaydedildi');
+      
+      // Veritabanında currentStep değerini güncelle
+      if (result.request && result.request.id) {
+        await updateRequestStep(result.request.id, 2);
+      }
       
       return true;
     } catch (error) {
@@ -830,7 +849,7 @@ export default function MusteriSayfasi() {
     let customerName =
       (profileData && (profileData.firstName || profileData.lastName))
         ? `${profileData.firstName || ''} ${profileData.lastName || ''}`.trim()
-        : (user?.name || session?.user?.name || 'Test Kullanıcı');
+        : (user?.name || session?.user?.name || 'Üye Olmayan Kullanıcı');
     let customerPhone =
       (profileData && profileData.phone)
         ? profileData.phone
@@ -851,14 +870,34 @@ export default function MusteriSayfasi() {
         transportType: service.name,
         transportTypeId: service._id?.toString() || '', // toString eklendi
         transportTypes: [service._id?.toString() || ''], // Filtreleme için gerekli dizi formatında
-        vehicle: service.vehicleType || ''
+        vehicle: service.vehicleType || '',
+        packageInfo: packageInfo || {}, // Alt başlık bilgileri eklendi
+        notes: contentDetails?.notes || '', // Not alanı eklendi
+        currentStep: 1 // Taşıma türü seçildiğinde step 1'dir
       })
     })
-    .then(response => response.json())
+    .then(response => {
+      console.log('API yanıt durumu:', response.status);
+      return response.json(); 
+    })
     .then(data => {
+      console.log('Talep oluşturma yanıtı:', data);
       if (data.success) {
         setCurrentStep(1);
+        
+        // Talep ID'sini localStorage'a kaydet
+        if (data.request && data.request.id) {
+          console.log('Talep ID localStorage\'a kaydediliyor:', data.request.id);
+          localStorage.setItem('currentRequestId', data.request.id);
+        } else if (data.request && data.request._id) {
+          // _id formatında geldiyse
+          console.log('Talep _id localStorage\'a kaydediliyor:', data.request._id);
+          localStorage.setItem('currentRequestId', data.request._id);
+        } else {
+          console.error('Talep ID bulunamadı:', data);
+        }
       } else {
+        console.error('Talep oluşturma başarısız:', data.message);
         toast.error(data.message || 'Talep kaydedilemedi!');
       }
     })
@@ -870,21 +909,34 @@ export default function MusteriSayfasi() {
   const handleFindCarrier = () => {
     setShowSummaryModal(false);
 
+    // Mevcut talepId'yi bul
+    const requestId = localStorage.getItem('currentRequestId');
+
     // Kullanıcı giriş yapmış mı kontrol et
     if (isAuthenticated || session) {
       // Giriş yapmışsa doğrudan taşıyıcı arama sayfasına yönlendir
-    setShowSearchingModal(true);
+      setShowSearchingModal(true);
       setCurrentStep(3); // Giriş yapmış kullanıcılar için taşıyıcı adımı 3
+      
+      // Step güncellemesi yap
+      if (requestId) {
+        updateRequestStep(requestId, 3);
+      }
 
-    // 3 saniye sonra taşıyıcı onay modalını göster
-    setTimeout(() => {
-      setShowSearchingModal(false);
-      setShowWaitingApprovalModal(true);
-    }, 3000);
+      // 3 saniye sonra taşıyıcı onay modalını göster
+      setTimeout(() => {
+        setShowSearchingModal(false);
+        setShowWaitingApprovalModal(true);
+      }, 3000);
     } else {
       // Giriş yapmamışsa iletişim bilgilerini iste
       setShowPhoneModal(true);
       setCurrentStep(3);
+      
+      // Step güncellemesi yap
+      if (requestId) {
+        updateRequestStep(requestId, 3);
+      }
     }
   };
 
@@ -919,11 +971,22 @@ export default function MusteriSayfasi() {
     setShowCarrierDetailsModal(false);
     setShowPaymentModal(true);
     
+    // Mevcut talepId'yi bul
+    const requestId = localStorage.getItem('currentRequestId');
+    
     // Giriş durumuna göre doğru adım değerini ayarla
     if (isAuthenticated || session) {
       setCurrentStep(4); // Giriş yapmış kullanıcılar için ödeme adımı 4
+      // Step güncellemesi yap
+      if (requestId) {
+        updateRequestStep(requestId, 4);
+      }
     } else {
       setCurrentStep(5); // Giriş yapmamış kullanıcılar için ödeme adımı 5
+      // Step güncellemesi yap
+      if (requestId) {
+        updateRequestStep(requestId, 5);
+      }
     }
     
     logActivity('odeme_baslatildi');
@@ -931,6 +994,15 @@ export default function MusteriSayfasi() {
 
   const handlePaymentComplete = () => {
     setModalStep(7);
+    
+    // Mevcut talepId'yi bul
+    const requestId = localStorage.getItem('currentRequestId');
+    
+    // Step güncellemesi yap (ödeme tamamlandı adımı)
+    if (requestId) {
+      updateRequestStep(requestId, 5);
+    }
+    
     logActivity('odeme_tamamlandi');
   };
 
@@ -1775,17 +1847,61 @@ export default function MusteriSayfasi() {
         <div className="bg-white rounded-lg p-6 border border-gray-200">
           <h3 className="text-lg font-semibold mb-4">Seçilen Hizmet</h3>
           <div className="flex items-center space-x-4">
-            {selectedService?.icon && (
-              <img 
-                src={selectedService.icon} 
-                alt={selectedService.name} 
-                className="w-12 h-12 object-contain"
-              />
-            )}
-            <div>
-              <p className="font-medium text-lg">{selectedService?.name}</p>
-              <p className="text-gray-600">{selectedService?.description}</p>
-            </div>
+            {(() => {
+              // Alt başlık seçilmiş mi kontrol et
+              const selectedSubtitle = Object.entries(packageInfo).find(([key, value]) => value === 'true' && key.includes('_sub_'));
+              if (selectedSubtitle) {
+                const [titleId, subIndex] = selectedSubtitle[0].split('_sub_');
+                const title = selectedService.packageTitles.find(t => t.id === titleId);
+                const sub = title?.subtitle[parseInt(subIndex)];
+                if (sub?.relatedServiceId) {
+                  const relatedService = services.find(s => s._id === sub.relatedServiceId);
+                  if (relatedService) {
+                    return (
+                      <>
+                        {relatedService.icon && (
+                          <img 
+                            src={relatedService.icon} 
+                            alt={relatedService.name} 
+                            className="w-12 h-12 object-contain"
+                          />
+                        )}
+                        <div>
+                          <p className="font-medium text-lg">{relatedService.name}</p>
+                          <p className="text-gray-600">{relatedService.description}</p>
+                          {relatedService.price && (
+                            <p className="text-orange-500 font-semibold mt-2">
+                              {relatedService.price} TL&apos;den başlayan fiyatlarla
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    );
+                  }
+                }
+              }
+              // Eğer alt başlık seçilmemişse veya relatedServiceId yoksa, normal seçilen hizmeti göster
+              return (
+                <>
+                  {selectedService?.icon && (
+                    <img 
+                      src={selectedService.icon} 
+                      alt={selectedService.name} 
+                      className="w-12 h-12 object-contain"
+                    />
+                  )}
+                  <div>
+                    <p className="font-medium text-lg">{selectedService?.name}</p>
+                    <p className="text-gray-600">{selectedService?.description}</p>
+                    {selectedService?.price && (
+                      <p className="text-orange-500 font-semibold mt-2">
+                        {selectedService.price} TL&apos;den başlayan fiyatlarla
+                      </p>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 
@@ -1826,16 +1942,21 @@ export default function MusteriSayfasi() {
                       const subtitleText = typeof sub === 'string' ? sub : sub.text;
                       const subId = `${packageTitle.id}_sub_${subIndex}`;
                       const isSelected = packageInfo[subId] === 'true';
-                      
+                      const relatedService = sub.relatedServiceId ? services.find(s => s._id === sub.relatedServiceId) : null;
                       if (isSelected) {
                         return (
-                          <div key={subIndex} className="flex items-center py-1">
-                            <span className="text-green-500 mr-2">
-                              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                              </svg>
-                            </span>
-                            <p className="text-sm text-gray-700">{subtitleText}</p>
+                          <div key={subIndex} className="flex flex-col py-1">
+                            <div className="flex items-center">
+                              <span className="text-green-500 mr-2">
+                                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                              </span>
+                              <p className="text-sm text-gray-700">{subtitleText}</p>
+                            </div>
+                            {relatedService && (
+                              <p className="text-xs text-blue-600 mt-1 ml-7">*Paketiniz "{relatedService.name}" ile taşınacaktır</p>
+                            )}
                           </div>
                         );
                       }
@@ -1913,8 +2034,8 @@ export default function MusteriSayfasi() {
           }}
           className="px-6 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors flex items-center"
         >
-          <FaArrowLeft className="mr-2" />
-          Geri
+          <FaEdit className="mr-2" />
+          Düzenle
         </button>
         <button
           onClick={() => {
@@ -2167,7 +2288,7 @@ export default function MusteriSayfasi() {
       console.log('Seçili servis bilgileri:', selectedService);
       
       const requestData = {
-        customerName: user?.name || session?.user?.name || 'Test Kullanıcı',
+        customerName: user?.name || session?.user?.name || 'Üye Olmayan Kullanıcı',
         customerPhone: user?.phone || session?.user?.phone || '5551112233',
         pickupLocation: pickupAddress,
         deliveryLocation: deliveryAddress,
@@ -2264,6 +2385,170 @@ export default function MusteriSayfasi() {
   const [tempMarkerPosition, setTempMarkerPosition] = useState(null);
   const [showTempMarker, setShowTempMarker] = useState(false);
   const [tempMarkerType, setTempMarkerType] = useState(''); // 'pickup' veya 'delivery'
+
+  // Tarih ve Saat Seçimi
+  const [selectedTimeOption, setSelectedTimeOption] = useState('asap');
+
+  // Step değişikliklerini veritabanına kaydetmek için yardımcı fonksiyon
+  const updateRequestStep = async (requestId, step) => {
+    if (!requestId) {
+      console.error('updateRequestStep: Talep ID bulunamadı');
+      return;
+    }
+    
+    console.log(`Step güncellemesi başlatılıyor: ID=${requestId}, Step=${step}`);
+    
+    try {
+      const response = await fetch('/api/admin/requests', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestId,
+          currentStep: step
+        }),
+      });
+      
+      if (!response.ok) {
+        console.error('Step güncellemesi başarısız oldu:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Hata detayı:', errorText);
+        return false;
+      }
+      
+      const data = await response.json();
+      console.log('Step güncelleme sonucu:', data);
+      
+      if (data.success) {
+        console.log(`Step başarıyla güncellendi: ${step}`);
+      } else {
+        console.error('Step güncelleme yanıtı başarısız:', data.message);
+      }
+      
+      return data.success;
+    } catch (error) {
+      console.error('Step güncellemesi sırasında hata:', error);
+      return false;
+    }
+  };
+
+  // Kullanıcı giriş işlemi
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    
+    if (!loginEmail || !loginPassword) {
+      setLoginError("Lütfen tüm alanları doldurun");
+      return;
+    }
+    
+    try {
+      setIsLoggingIn(true);
+      setLoginError('');
+      
+      const response = await fetch('/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: loginEmail,
+          password: loginPassword
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Giriş yapılırken bir hata oluştu");
+      }
+      
+      // Başarılı giriş
+      toast.success("Giriş başarılı!");
+      
+      // Kullanıcı bilgilerini güncelle
+      // useAuth hook'u üzerinden user state'ini güncelle ya da sayfayı yenile
+      
+      // Modalı kapat ve kaldığı yerden devam et
+      setShowLoginModal(false);
+      
+      // Sayfayı yenileyerek oturum bilgilerini güncelle
+      window.location.reload();
+      
+    } catch (error) {
+      setLoginError(error.message || "Giriş yapılırken bir hata oluştu");
+      console.error("Giriş hatası:", error);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+  
+  // Kullanıcı kayıt işlemi
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    
+    if (!registerName || !registerEmail || !registerPhone || !registerPassword) {
+      setRegisterError("Lütfen tüm alanları doldurun");
+      return;
+    }
+    
+    try {
+      setIsRegistering(true);
+      setRegisterError('');
+      
+      const response = await fetch('/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          name: registerName,
+          email: registerEmail,
+          phone: registerPhone,
+          password: registerPassword
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Kayıt olurken bir hata oluştu");
+      }
+      
+      // Başarılı kayıt
+      toast.success("Kayıt başarılı! Giriş yapabilirsiniz.");
+      
+      // Kayıt olur olmaz otomatik giriş yap
+      const loginResponse = await fetch('/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: registerEmail,
+          password: registerPassword
+        }),
+      });
+      
+      if (loginResponse.ok) {
+        // Modalı kapat ve kaldığı yerden devam et
+        setShowRegisterModal(false);
+        
+        // Sayfayı yenileyerek oturum bilgilerini güncelle
+        window.location.reload();
+      } else {
+        // Kayıt başarılı ama giriş başarısızsa, giriş modalını aç
+        setShowRegisterModal(false);
+        setShowLoginModal(true);
+      }
+      
+    } catch (error) {
+      setRegisterError(error.message || "Kayıt olurken bir hata oluştu");
+      console.error("Kayıt hatası:", error);
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   return (
     <main className={`min-h-screen bg-gray-100 flex flex-col ${showModal || showSummaryModal || showPhoneModal || showSearchingModal || showWaitingApprovalModal || showCarrierDetailsModal || showPaymentModal || showPaymentSuccessModal ? 'modal-blur' : ''}`}>
@@ -3140,75 +3425,59 @@ export default function MusteriSayfasi() {
               {/* Taşıma Tarih ve Saat */}
                         <div>
                 <h3 className="text-lg font-medium text-gray-700 mb-2">Taşıma Tarih ve Saat</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">
-                      Tarih
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <FaCalendar className="text-gray-400" />
-                        </div>
-                      <input
-                      type="date"
-                      value={selectedDate}
-                          onChange={(e) => {
-                            const selectedValue = e.target.value;
-                            const today = new Date().toISOString().split('T')[0];
-                            
-                            // Geçmiş tarih seçilmeye çalışılıyorsa
-                            if (selectedValue < today) {
-                              // Tarihi bugüne sıfırla
-                              setSelectedDate(today);
-                              // Uyarı göster
-                              toast.warning("Geçmiş bir tarih seçemezsiniz. Tarih bugüne ayarlandı.");
-                            } else {
-                              setSelectedDate(selectedValue);
-                            }
-                          }}
-                          min={new Date().toISOString().split('T')[0]}
-                          className="w-full py-2 pl-10 pr-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-700"
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Taşıma Zamanı</label>
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTimeOption('asap')}
+                        className={`flex-1 px-4 py-2 rounded-lg border ${
+                          selectedTimeOption === 'asap'
+                            ? 'border-orange-500 bg-orange-50 text-orange-700'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        En kısa sürede
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTimeOption('specific')}
+                        className={`flex-1 px-4 py-2 rounded-lg border ${
+                          selectedTimeOption === 'specific'
+                            ? 'border-orange-500 bg-orange-50 text-orange-700'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Belirli bir zamanda
+                      </button>
+                    </div>
+                  </div>
+
+                  {selectedTimeOption === 'specific' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Alış Tarihi</label>
+                        <input
+                          type="date"
+                          value={selectedDate}
+                          onChange={(e) => setSelectedDate(e.target.value)}
+                          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">Bugün veya daha sonraki bir tarih seçin</p>
-                        </div>
-                        <div>
-                    <label className="block text-sm font-medium text-gray-600 mb-1">
-                      Saat
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <FaClock className="text-gray-400" />
-                        </div>
-                        <select
-                      value={selectedTime}
-                      onChange={(e) => setSelectedTime(e.target.value)}
-                          className="w-full py-2 pl-10 pr-3 border border-gray-300 rounded-lg appearance-none bg-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-700"
-                        >
-                          <option value="">Saat seçin</option>
-                          {Array.from({ length: 24 }).map((_, hour) => 
-                            [0, 15, 30, 45].map((minute) => {
-                              const formattedHour = hour.toString().padStart(2, '0');
-                              const formattedMinute = minute.toString().padStart(2, '0');
-                              const timeValue = `${formattedHour}:${formattedMinute}`;
-                              return (
-                                <option key={timeValue} value={timeValue}>
-                                  {timeValue}
-                                </option>
-                              );
-                            })
-                          )}
-                        </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                          <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">15 dakikalık aralıklarla seçim yapabilirsiniz</p>
-                        </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Alış Saati</label>
+                        <input
+                          type="time"
+                          value={selectedTime}
+                          onChange={(e) => setSelectedTime(e.target.value)}
+                          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        />
                       </div>
                     </div>
+                  )}
+                </div>
+              </div>
 
               {/* Paket Detayları */}
                     <div>
@@ -3351,6 +3620,19 @@ export default function MusteriSayfasi() {
                 </div>
                   </div>
 
+                  {/* Not Alanı */}
+                  <div className="mt-6">
+                    <h3 className="text-lg font-medium text-gray-700 mb-2">Not</h3>
+                    <textarea
+                      name="notes"
+                      value={contentDetails.notes || ''}
+                      onChange={handleContentChange}
+                      placeholder="Taşıma ile ilgili notlarınızı buraya yazabilirsiniz..."
+                      rows="4"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-gray-700 placeholder-gray-400"
+                    ></textarea>
+                  </div>
+
                   {/* Butonlar */}
               <div className="flex justify-between mt-8">
                     <button
@@ -3410,24 +3692,63 @@ export default function MusteriSayfasi() {
               <div className="bg-white rounded-lg p-6 border border-gray-200">
                 <h3 className="text-lg font-semibold mb-4">Seçilen Hizmet</h3>
                 <div className="flex items-center space-x-4">
-                  {selectedService?.icon && (
-                    <img 
-                      src={selectedService.icon} 
-                      alt={selectedService.name} 
-                      className="w-12 h-12 object-contain"
-                    />
-                  )}
-                    <div>
-                    <p className="font-medium text-lg">{selectedService?.name}</p>
-                    <p className="text-gray-600">{selectedService?.description}</p>
-                    {selectedService?.price && (
-                      <p className="text-orange-500 font-semibold mt-2">
-                        {selectedService.price} TL&apos;den başlayan fiyatlarla
-                      </p>
-                    )}
-                    </div>
-                    </div>
-                  </div>
+                  {(() => {
+                    // Alt başlık seçilmiş mi kontrol et
+                    const selectedSubtitle = Object.entries(packageInfo).find(([key, value]) => value === 'true' && key.includes('_sub_'));
+                    if (selectedSubtitle) {
+                      const [titleId, subIndex] = selectedSubtitle[0].split('_sub_');
+                      const title = selectedService.packageTitles.find(t => t.id === titleId);
+                      const sub = title?.subtitle[parseInt(subIndex)];
+                      if (sub?.relatedServiceId) {
+                        const relatedService = services.find(s => s._id === sub.relatedServiceId);
+                        if (relatedService) {
+                          return (
+                            <>
+                              {relatedService.icon && (
+                                <img 
+                                  src={relatedService.icon} 
+                                  alt={relatedService.name} 
+                                  className="w-12 h-12 object-contain"
+                                />
+                              )}
+                              <div>
+                                <p className="font-medium text-lg">{relatedService.name}</p>
+                                <p className="text-gray-600">{relatedService.description}</p>
+                                {relatedService.price && (
+                                  <p className="text-orange-500 font-semibold mt-2">
+                                    {relatedService.price} TL&apos;den başlayan fiyatlarla
+                                  </p>
+                                )}
+                              </div>
+                            </>
+                          );
+                        }
+                      }
+                    }
+                    // Eğer alt başlık seçilmemişse veya relatedServiceId yoksa, normal seçilen hizmeti göster
+                    return (
+                      <>
+                        {selectedService?.icon && (
+                          <img 
+                            src={selectedService.icon} 
+                            alt={selectedService.name} 
+                            className="w-12 h-12 object-contain"
+                          />
+                        )}
+                        <div>
+                          <p className="font-medium text-lg">{selectedService?.name}</p>
+                          <p className="text-gray-600">{selectedService?.description}</p>
+                          {selectedService?.price && (
+                            <p className="text-orange-500 font-semibold mt-2">
+                              {selectedService.price} TL&apos;den başlayan fiyatlarla
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
 
               {/* Taşıma Detayları */}
               <div className="bg-white rounded-lg p-6 border border-gray-200">
@@ -3441,17 +3762,28 @@ export default function MusteriSayfasi() {
                     <p className="text-sm text-gray-500 mb-1">Tahmini Süre</p>
                     <p className="font-medium">{routeInfo?.duration || 'Hesaplanıyor...'}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Tarih</p>
-                    <p className="font-medium">{formatDate(selectedDate)}</p>
-                  </div>
-                    <div>
-                    <p className="text-sm text-gray-500 mb-1">Saat</p>
-                    <p className="font-medium">{selectedTime || 'Seçilmedi'}</p>
-                    </div>
-                    </div>
-                  </div>
                   
+                  {selectedTimeOption === 'asap' ? (
+                    <div className="col-span-1 md:col-span-2">
+                      <p className="text-sm text-gray-500 mb-1">Taşıma Zamanı</p>
+                      <p className="font-medium">En kısa sürede (2-3 saat içinde)</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Tarih</p>
+                        <p className="font-medium">{formatDate(selectedDate)}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500 mb-1">Saat</p>
+                        <p className="font-medium">{selectedTime || 'Seçilmedi'}</p>
+                      </div>
+                    </>
+                  )}
+                  
+                </div>
+              </div>
+
               {/* Paket Bilgileri */}
               <div className="bg-white rounded-lg p-6 border border-gray-200">
                 <h3 className="text-lg font-semibold mb-4">Paket Bilgileri</h3>
@@ -3466,16 +3798,21 @@ export default function MusteriSayfasi() {
                             const subtitleText = typeof sub === 'string' ? sub : sub.text;
                             const subId = `${packageTitle.id}_sub_${subIndex}`;
                             const isSelected = packageInfo[subId] === 'true';
-                            
+                            const relatedService = sub.relatedServiceId ? services.find(s => s._id === sub.relatedServiceId) : null;
                             if (isSelected) {
                               return (
-                                <div key={subIndex} className="flex items-center py-1">
-                                  <span className="text-green-500 mr-2">
-                                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                    </svg>
-                                  </span>
-                                  <p className="text-sm text-gray-700">{subtitleText}</p>
+                                <div key={subIndex} className="flex flex-col py-1">
+                                  <div className="flex items-center">
+                                    <span className="text-green-500 mr-2">
+                                      <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                      </svg>
+                                    </span>
+                                    <p className="text-sm text-gray-700">{subtitleText}</p>
+                                  </div>
+                                  {relatedService && (
+                                    <p className="text-xs text-blue-600 mt-1 ml-7">*Paketiniz "{relatedService.name}" ile taşınacaktır</p>
+                                  )}
                                 </div>
                               );
                             }
@@ -3545,6 +3882,17 @@ export default function MusteriSayfasi() {
         </div>
                 
             <div className="flex justify-between mt-8">
+              <button
+                onClick={() => {
+                  setShowTransportSummaryModal(false);
+                  setShowSummaryModal(true);
+                  setCurrentStep(1);
+                }}
+                className="px-6 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors flex items-center"
+              >
+                <FaEdit className="mr-2" />
+                Düzenle
+              </button>
               <button
                 onClick={() => {
                   setShowTransportSummaryModal(false);
@@ -3734,14 +4082,23 @@ export default function MusteriSayfasi() {
                   <div className="flex items-start">
                     <FaInfoCircle className="text-orange-500 mt-1 mr-2 flex-shrink-0" />
                     <p className="text-sm text-orange-800">
-                      Üye girişi yapmadan devam ediyorsunuz. Siparişinizin geçmişini görmek ve daha hızlı taşıma hizmeti almak için 
-                      <Link href="/login" className="font-semibold text-orange-600 hover:underline ml-1">
-                        giriş yapabilir
-                      </Link> veya 
-                      <Link href="/register" className="font-semibold text-orange-600 hover:underline ml-1">
-                        kayıt olabilirsiniz
-                      </Link>.
+                      Üye girişi yapmadan devam ediyorsunuz. Siparişinizin geçmişini görmek ve kampanyalı fiyatlardan yararlanmak için giriş yapabilir veya kayıt olabilirsiniz.
                     </p>
+                  </div>
+                  
+                  <div className="flex space-x-3 mt-3">
+                    <button 
+                      onClick={() => setShowLoginModal(true)}
+                      className="flex-1 text-center bg-white border border-orange-300 text-orange-700 px-3 py-2 rounded-lg font-medium text-sm hover:bg-orange-50 transition-colors"
+                    >
+                      Giriş Yap
+                    </button>
+                    <button 
+                      onClick={() => setShowRegisterModal(true)}
+                      className="flex-1 text-center bg-white border border-orange-300 text-orange-700 px-3 py-2 rounded-lg font-medium text-sm hover:bg-orange-50 transition-colors"
+                    >
+                      Kayıt Ol
+                    </button>
                   </div>
                 </div>
               </div>
@@ -3989,6 +4346,224 @@ export default function MusteriSayfasi() {
                   İptal
                 </button>
               </div>
+            </div>
+          </div>
+        </CustomModal>
+      )}
+      
+      {/* Giriş Yap Modalı */}
+      {showLoginModal && (
+        <CustomModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)}>
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Giriş Yap</h2>
+              <button onClick={() => setShowLoginModal(false)} className="text-gray-500 hover:text-gray-700">
+                <FaTimes size={24} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleLogin} className="space-y-4">
+              {loginError && (
+                <div className="p-3 bg-red-50 text-red-700 rounded-lg">
+                  {loginError}
+                </div>
+              )}
+              
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  E-posta
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="ornek@email.com"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                  Şifre
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="********"
+                  required
+                />
+              </div>
+              
+              <div className="flex justify-between items-center pt-2">
+                <Link href="/forgot-password" className="text-sm text-orange-600 hover:text-orange-700">
+                  Şifremi Unuttum
+                </Link>
+                <button
+                  type="submit"
+                  disabled={isLoggingIn}
+                  className={`px-6 py-2 rounded-lg transition ${
+                    isLoggingIn
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-orange-500 hover:bg-orange-600 text-white'
+                  }`}
+                >
+                  {isLoggingIn ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Giriş Yapılıyor...
+                    </span>
+                  ) : (
+                    'Giriş Yap'
+                  )}
+                </button>
+              </div>
+            </form>
+            
+            <div className="mt-6 border-t border-gray-200 pt-4">
+              <p className="text-center text-sm text-gray-600">
+                Hesabınız yok mu?{' '}
+                <button
+                  onClick={() => {
+                    setShowLoginModal(false);
+                    setShowRegisterModal(true);
+                  }}
+                  className="text-orange-600 hover:text-orange-700 font-medium"
+                >
+                  Hemen Kayıt Olun
+                </button>
+              </p>
+            </div>
+          </div>
+        </CustomModal>
+      )}
+      
+      {/* Kayıt Ol Modalı */}
+      {showRegisterModal && (
+        <CustomModal isOpen={showRegisterModal} onClose={() => setShowRegisterModal(false)}>
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Kayıt Ol</h2>
+              <button onClick={() => setShowRegisterModal(false)} className="text-gray-500 hover:text-gray-700">
+                <FaTimes size={24} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleRegister} className="space-y-4">
+              {registerError && (
+                <div className="p-3 bg-red-50 text-red-700 rounded-lg">
+                  {registerError}
+                </div>
+              )}
+              
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Ad Soyad
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  value={registerName}
+                  onChange={(e) => setRegisterName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="Ali Veli"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  E-posta
+                </label>
+                <input
+                  id="register-email"
+                  type="email"
+                  value={registerEmail}
+                  onChange={(e) => setRegisterEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="ornek@email.com"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                  Telefon
+                </label>
+                <div className="flex">
+                  <span className="bg-gray-100 px-3 py-2 border border-r-0 border-gray-300 rounded-l-lg text-gray-500">+90</span>
+                  <input
+                    id="register-phone"
+                    type="tel"
+                    value={registerPhone}
+                    onChange={(e) => setRegisterPhone(e.target.value.replace(/\D/g, '').substring(0, 10))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    placeholder="5XX XXX XX XX"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label htmlFor="register-password" className="block text-sm font-medium text-gray-700 mb-1">
+                  Şifre
+                </label>
+                <input
+                  id="register-password"
+                  type="password"
+                  value={registerPassword}
+                  onChange={(e) => setRegisterPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  placeholder="En az 6 karakter"
+                  required
+                />
+              </div>
+              
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isRegistering}
+                  className={`w-full py-2 rounded-lg transition ${
+                    isRegistering
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-orange-500 hover:bg-orange-600 text-white'
+                  }`}
+                >
+                  {isRegistering ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Kayıt Olunuyor...
+                    </span>
+                  ) : (
+                    'Kayıt Ol'
+                  )}
+                </button>
+              </div>
+            </form>
+            
+            <div className="mt-6 border-t border-gray-200 pt-4">
+              <p className="text-center text-sm text-gray-600">
+                Zaten hesabınız var mı?{' '}
+                <button
+                  onClick={() => {
+                    setShowRegisterModal(false);
+                    setShowLoginModal(true);
+                  }}
+                  className="text-orange-600 hover:text-orange-700 font-medium"
+                >
+                  Giriş Yapın
+                </button>
+              </p>
             </div>
           </div>
         </CustomModal>

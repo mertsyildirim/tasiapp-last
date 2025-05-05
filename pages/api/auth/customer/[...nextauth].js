@@ -1,5 +1,7 @@
 import NextAuth from 'next-auth';
 import { authOptions } from './auth-options';
 
-export { authOptions };
-export default NextAuth(authOptions); 
+console.log("Customer NextAuth başlatılıyor, provider:", authOptions?.providers?.[0]?.id || "Bulunamadı");
+
+export default NextAuth(authOptions);
+export { authOptions }; 
