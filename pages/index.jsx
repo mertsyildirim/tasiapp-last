@@ -159,6 +159,7 @@ export default function MusteriSayfasi() {
   const [otpSent, setOtpSent] = useState(false)
   const [showWaitingApprovalModal, setShowWaitingApprovalModal] = useState(false)
   const [showCarrierDetailsModal, setShowCarrierDetailsModal] = useState(false)
+  const [carrierCount, setCarrierCount] = useState(3) // Bulunan taşıyıcı sayısı için state
   const [currentStep, setCurrentStep] = useState(0)
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedService, setSelectedService] = useState({
@@ -837,6 +838,9 @@ export default function MusteriSayfasi() {
       
       // 3 saniye sonra taşıyıcı onay bekleme ekranına geç
       setTimeout(() => {
+        // Random taşıyıcı sayısı üret, gerçek API entegrasyonunda burası değişecek
+        const randomCarrierCount = Math.floor(Math.random() * 5) + 1; // 1-5 arası random taşıyıcı
+        setCarrierCount(randomCarrierCount);
         setShowSearchingModal(false);
         setShowWaitingApprovalModal(true);
       }, 3000);
@@ -923,11 +927,7 @@ export default function MusteriSayfasi() {
         updateRequestStep(requestId, 3);
       }
 
-      // 3 saniye sonra taşıyıcı onay modalını göster
-      setTimeout(() => {
-        setShowSearchingModal(false);
-        setShowWaitingApprovalModal(true);
-      }, 3000);
+      // setTimeout'u kaldırdık - Taşıyıcı onay modalı artık otomatik gösterilmeyecek
     } else {
       // Giriş yapmamışsa iletişim bilgilerini iste
       setShowPhoneModal(true);
@@ -960,8 +960,12 @@ export default function MusteriSayfasi() {
     setCurrentStep(4);
     setShowPhoneModal(false);
     setShowSearchingModal(true);
-
+    
+    // 3 saniye sonra taşıyıcı onay bekleme ekranına geç
     setTimeout(() => {
+      // Random taşıyıcı sayısı üret (1-5 arası)
+      const randomCarrierCount = Math.floor(Math.random() * 5) + 1;
+      setCarrierCount(randomCarrierCount);
       setShowSearchingModal(false);
       setShowWaitingApprovalModal(true);
     }, 3000);
@@ -1091,11 +1095,7 @@ export default function MusteriSayfasi() {
             setShowSearchingModal(true);
             setCurrentStep(3); // Giriş yapmış kullanıcılar için taşıyıcı adımı 3
             
-            // 3 saniye sonra taşıyıcı onay bekleme ekranına geç
-            setTimeout(() => {
-              setShowSearchingModal(false);
-              setShowWaitingApprovalModal(true);
-            }, 3000);
+            // setTimeout'u kaldırdık - Taşıyıcı onay modalı artık otomatik gösterilmeyecek
           } else {
             // Giriş yapılmamışsa iletişim bilgileri modalını göster
           setShowPhoneModal(true);
@@ -2295,6 +2295,23 @@ export default function MusteriSayfasi() {
       .then(data => {
         if (data.success) {
           console.log('Talep başarıyla oluşturuldu, taşıyıcı portalında görüntülenebilir:', data);
+          // Talep ID'sini saklayalım - API'den dönen formata göre ID'yi alalım
+          if (data.request && data.request.id) {
+            const requestId = data.request.id;
+            console.log('Talep ID kaydediliyor:', requestId);
+            setCurrentRequestId(requestId);
+            localStorage.setItem('currentRequestId', requestId);
+          } else if (data.requestId) {
+            console.log('Talep ID kaydediliyor (alternatif format):', data.requestId);
+            setCurrentRequestId(data.requestId);
+            localStorage.setItem('currentRequestId', data.requestId);
+          } else if (data.request && data.request._id) {
+            // MongoDB _id değeri varsa id olarak onu kullan
+            const requestId = data.request._id.toString();
+            console.log('Talep ID kaydediliyor (_id):', requestId);
+            setCurrentRequestId(requestId);
+            localStorage.setItem('currentRequestId', requestId);
+          }
         } else {
           console.error('Talep oluşturulamadı:', data.message);
         }
@@ -2303,15 +2320,7 @@ export default function MusteriSayfasi() {
         console.error('API hatası:', err);
       });
       
-      // 5 saniye sonra ödeme modalını göster
-      const timer = setTimeout(() => {
-        setShowWaitingApprovalModal(false);
-        setShowPaymentModal(true);
-        setCurrentStep(5);
-        logActivity('odeme_baslatildi');
-      }, 5000);
-      
-      return () => clearTimeout(timer);
+      // setTimeout'u kaldırdık - Ödeme modalına otomatik geçiş olmayacak
     }
   }, [showWaitingApprovalModal]);
   
@@ -2608,6 +2617,76 @@ export default function MusteriSayfasi() {
       }
     }
   }, [isLoaded, deliveryMarker, pickupMarker, deliveryAddress, pickupAddress]);
+
+  // Statü kontrolü için yeni state ekleyelim
+  const [currentRequestId, setCurrentRequestId] = useState(null); // Şu anki talep ID'si
+
+  // Talep durumunu kontrol eden yeni useEffect ekleyelim
+  useEffect(() => {
+    // Taşıyıcılar Bulundu modalı açıksa
+    if (showWaitingApprovalModal) {
+      const requestId = currentRequestId || localStorage.getItem('currentRequestId');
+      console.log('Durum kontrolü için talep ID:', requestId);
+      
+      if (!requestId) {
+        console.warn('Kontrol edilecek talep ID bulunamadı');
+        return;
+      }
+      
+      // Talep durumunu kontrol eden bir interval başlat
+      console.log(`${requestId} ID'li talep için durum kontrolü başlatılıyor...`);
+      const checkStatusInterval = setInterval(() => {
+        // API'dan talep durumunu kontrol et
+        fetch(`/api/admin/requests?id=${requestId}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log('Talep durumu kontrolü yanıtı:', data);
+          
+          // Birden fazla olası response formatını kontrol et
+          const request = data.request || (data.requests && data.requests[0]) || null;
+          
+          if (request) {
+            console.log(`Talep durumu: ${request.status}, ID: ${requestId}`);
+            
+            // Eğer taşıyıcı talebi onayladıysa (status "approved" olduysa)
+            if (request.status === 'approved') {
+              console.log('Taşıyıcı talebi onayladı! Ödeme ekranına geçiliyor...');
+              
+              // Interval'ı temizle
+              clearInterval(checkStatusInterval);
+              
+              // Taşıyıcı onaylandı - Ödeme ekranına geç
+              setShowWaitingApprovalModal(false);
+              setShowPaymentModal(true);
+              
+              // Giriş durumuna göre doğru adım değerini ayarla
+              if (isAuthenticated || session) {
+                setCurrentStep(4); // Giriş yapmış kullanıcılar için ödeme adımı 4
+              } else {
+                setCurrentStep(5); // Giriş yapmamış kullanıcılar için ödeme adımı 5
+              }
+              
+              logActivity('odeme_baslatildi');
+            }
+          } else {
+            console.warn('Talep bilgisi alınamadı:', data);
+          }
+        })
+        .catch(err => {
+          console.error('Talep durumu kontrolü sırasında hata:', err);
+        });
+      }, 5000); // Her 5 saniyede bir kontrol et
+      
+      // Component unmount olduğunda interval'ı temizle
+      return () => {
+        console.log('Durum kontrolü interval temizleniyor');
+        clearInterval(checkStatusInterval);
+      };
+    }
+  }, [showWaitingApprovalModal, currentRequestId]);
 
   return (
     <main className={`min-h-screen bg-gray-100 flex flex-col ${showModal || showSummaryModal || showPhoneModal || showSearchingModal || showWaitingApprovalModal || showCarrierDetailsModal || showPaymentModal || showPaymentSuccessModal ? 'modal-blur' : ''}`}>
@@ -4361,13 +4440,13 @@ export default function MusteriSayfasi() {
                 <div className="relative">
                   <FaCheckCircle className="text-orange-500 w-16 h-16" />
                   <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">3</span>
+                    <span className="text-white text-xs font-bold">{carrierCount}</span>
                   </div>
                 </div>
               </div>
               <h2 className="text-2xl font-semibold text-center mb-4">Taşıyıcılar Bulundu!</h2>
               <p className="text-gray-600 text-center max-w-md mb-6">
-                3 taşıyıcı bulundu ve onayları bekleniyor. İlk onay veren taşıyıcı sizinle eşleşecek.
+                {carrierCount} taşıyıcı bulundu ve onayları bekleniyor. İlk onay veren taşıyıcı sizinle eşleşecek.
               </p>
               <div className="flex justify-center space-x-2 mb-6">
                 <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
