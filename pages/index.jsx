@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { FaTruck, FaBoxOpen, FaMapMarkedAlt, FaShieldAlt, FaClock, FaHandshake, FaLocationArrow, FaBuilding, FaHome, FaWarehouse, FaSpinner, FaPallet, FaBox, FaImage, FaTrash, FaMapMarkerAlt, FaCheck, FaStar, FaPhone, FaInfoCircle, FaCheckCircle, FaEnvelope, FaMapPin, FaFacebook, FaTwitter, FaInstagram, FaLinkedin, FaSnowflake, FaBolt, FaTools, FaLock, FaMoneyBillWave, FaMapMarked, FaArrowLeft, FaSignOutAlt, FaRoute, FaTimes, FaCalendar, FaUser, FaBars, FaEdit } from 'react-icons/fa'
+import { FaTruck, FaBoxOpen, FaMapMarkedAlt, FaShieldAlt, FaClock, FaHandshake, FaLocationArrow, FaBuilding, FaHome, FaWarehouse, FaSpinner, FaPallet, FaBox, FaImage, FaTrash, FaMapMarkerAlt, FaCheck, FaStar, FaPhone, FaInfoCircle, FaCheckCircle, FaEnvelope, FaMapPin, FaFacebook, FaTwitter, FaInstagram, FaLinkedin, FaSnowflake, FaBolt, FaTools, FaLock, FaMoneyBillWave, FaMapMarked, FaArrowLeft, FaSignOutAlt, FaRoute, FaTimes, FaCalendar, FaUser, FaBars, FaEdit, 
+  FaSearch, FaArrowRight, FaTruckMoving, FaDotCircle, FaAngleRight, FaPlusCircle, FaMinusCircle } from 'react-icons/fa'
 import { GoogleMap, useLoadScript, Marker, DirectionsRenderer, StandaloneSearchBox, AdvancedMarkerElement } from '@react-google-maps/api'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -2029,12 +2030,21 @@ export default function MusteriSayfasi() {
   </Modal>
 
   const handlePriceCalculate = () => {
+    // Boş mesafe kontrolü ekle
+    if (!distance) return 0;
+    
+    // Servis sayfasındaki gibi mesafe değerini string'den sayıya dönüştür
+    const distanceValue = typeof distance === 'string' 
+      ? parseFloat(distance.replace(/[^0-9,.]/g, '').replace(',', '.'))
+      : Number(distance);
+    
     const now = new Date();
     const hour = now.getHours();
     const isNight = hour >= 20 || hour < 8;
 
     const options = {
-      isUrgent: false,
+      // Sadece "urgent" (Acil gönderi) seçildiğinde isUrgent true olacak
+      isUrgent: selectedTimeOption === 'urgent',
       isNight: isNight
     };
 
@@ -2046,22 +2056,24 @@ export default function MusteriSayfasi() {
       nightFee: Number(selectedService?.nightFee || 0)
     };
 
-    const base = calculateBasePrice(distance, options, pricingData);
+    // Baz fiyatı hesapla
+    const base = calculateBasePrice(distanceValue, options, pricingData);
+    
+    // Debug için log ekle
+    console.log("Fiyat Hesaplama (Anasayfa):", {
+      mesafe: distance,
+      mesafeValue: distanceValue,
+      basePrice: pricingData.basePrice,
+      baseKm: pricingData.baseKm,
+      pricePerKm: pricingData.pricePerKm,
+      isUrgent: options.isUrgent,
+      isNight: options.isNight,
+      hesaplananFiyat: base
+    });
+    
+    // Kampanya hesaplaması yapılmayacak, direkt base fiyatı kullanılacak
     setBasePrice(base);
-    
-    
-    // Aktif kampanya varsa uygula, yoksa base fiyatı kullan
-    if (activeCampaign) {
-      let final = base;
-      if (activeCampaign.discountType === 'percentage') {
-        final = base * (1 - activeCampaign.discountValue / 100);
-      } else if (activeCampaign.discountType === 'fixed') {
-        final = base - activeCampaign.discountValue;
-      }
-      setCalculatedPrice(final);
-    } else {
-      setCalculatedPrice(base);
-    }
+    setCalculatedPrice(base);
   };
 
   // Mesafe değiştiğinde fiyatı otomatik hesapla
@@ -2230,10 +2242,13 @@ export default function MusteriSayfasi() {
   }, [activeCampaign, basePrice]);
 
   const formatCurrency = (value) => {
+    // Eğer değer 10'un katı ise direkt o değeri kullan, değilse 10'un katına yukarı yuvarla
+    const roundedValue = value % 10 === 0 ? value : Math.ceil(value / 10) * 10;
+    
     return new Intl.NumberFormat('tr-TR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(value);
+    }).format(roundedValue);
   };
 
   // Kullanıcı profilini çek
@@ -3551,9 +3566,24 @@ export default function MusteriSayfasi() {
                           selectedTimeOption === 'asap'
                             ? 'border-orange-500 bg-orange-50 text-orange-700'
                             : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
+                        } flex flex-col items-center justify-center`}
                       >
-                        En kısa sürede
+                        <FaClock className="text-xl mb-2" />
+                        <span className="font-medium text-sm">En kısa sürede</span>
+                        <span className="text-xs mt-1 text-gray-500">2-3 saat içinde</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTimeOption('urgent')}
+                        className={`flex-1 px-4 py-2 rounded-lg border ${
+                          selectedTimeOption === 'urgent'
+                            ? 'border-red-500 bg-red-50 text-red-700'
+                            : 'border-gray-300 text-gray-700 hover:border-red-300'
+                        } flex flex-col items-center justify-center`}
+                      >
+                        <FaBolt className="text-xl mb-2" />
+                        <span className="font-medium text-sm">Acil gönderi</span>
+                        <span className="text-xs mt-1 text-gray-500">90 dk içinde</span>
                       </button>
                       <button
                         type="button"
@@ -3562,9 +3592,11 @@ export default function MusteriSayfasi() {
                           selectedTimeOption === 'specific'
                             ? 'border-orange-500 bg-orange-50 text-orange-700'
                             : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
+                        } flex flex-col items-center justify-center`}
                       >
-                        Belirli bir zamanda
+                        <FaCalendar className="text-xl mb-2" />
+                        <span className="font-medium text-sm">Belirli bir zamanda</span>
+                        <span className="text-xs mt-1 text-gray-500">Tarih ve saat seçin</span>
                       </button>
                     </div>
                   </div>
@@ -3881,17 +3913,22 @@ export default function MusteriSayfasi() {
                   {selectedTimeOption === 'asap' ? (
                     <div className="col-span-1 md:col-span-2">
                       <p className="text-sm text-gray-500 mb-1">Taşıma Zamanı</p>
-                      <p className="font-medium">En kısa sürede (2-3 saat içinde)</p>
+                      <p className="font-medium text-gray-800">En kısa sürede (2-3 saat içinde)</p>
+                    </div>
+                  ) : selectedTimeOption === 'urgent' ? (
+                    <div className="col-span-1 md:col-span-2">
+                      <p className="text-sm text-gray-500 mb-1">Taşıma Zamanı</p>
+                      <p className="font-medium text-gray-800">Acil gönderi (90 dk içinde)</p>
                     </div>
                   ) : (
                     <>
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Tarih</p>
-                        <p className="font-medium">{formatDate(selectedDate)}</p>
+                        <p className="font-medium text-gray-800">{formatDate(selectedDate)}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500 mb-1">Saat</p>
-                        <p className="font-medium">{selectedTime || 'Seçilmedi'}</p>
+                        <p className="font-medium text-gray-800">{selectedTime || 'Seçilmedi'}</p>
                       </div>
                     </>
                   )}
