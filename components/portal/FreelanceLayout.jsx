@@ -548,7 +548,7 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
                   </h3>
                   <div className="mt-2">
                     <p className="text-sm text-gray-500">
-                      Taşı.app'in konumunuzu kullanmasına izin vererek müşterilerin sizi daha kolay bulmasını sağlayabilirsiniz. 
+                      Taşı.app&apos;in konumunuzu kullanmasına izin vererek müşterilerin sizi daha kolay bulmasını sağlayabilirsiniz. 
                       Ayrıca konum paylaşımı, taşıma taleplerini daha doğru bir şekilde alabilmenizi sağlar.
                     </p>
                   </div>
@@ -604,8 +604,8 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
                   <div className="mt-2">
                     <p className="text-sm text-gray-500">
                       {locationShared 
-                        ? 'Şu anda konumunuz müşteriler ve yöneticilerle paylaşılıyor. Bu, taşıma taleplerini daha kolay almanızı sağlar.' 
-                        : 'Konum paylaşımınız durduruldu. Taşıma talepleri alabilirsiniz ancak müşteriler sizi haritada göremeyecek.'}
+                        ? "Şu anda konumunuz müşteriler ve yöneticilerle paylaşılıyor. Bu, taşıma taleplerini daha kolay almanızı sağlar." 
+                        : "Konum paylaşımınız durduruldu. Taşıma talepleri alabilirsiniz ancak müşteriler sizi haritada göremeyecek."}
                     </p>
                   </div>
                 </div>

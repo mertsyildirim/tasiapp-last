@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
-import { FaFileAlt, FaUpload, FaDownload, FaEye, FaTrash, FaExclamationTriangle, FaCheck, FaClock, FaPlus, FaSearch } from 'react-icons/fa';
+import { FaFileAlt, FaUpload, FaDownload, FaEye, FaTrash, FaExclamationTriangle, FaCheck, FaClock, FaPlus, FaSearch, FaTimes } from 'react-icons/fa';
 import FreelanceLayout from '../../../components/portal/FreelanceLayout';
 
 export default function FreelanceDocuments() {

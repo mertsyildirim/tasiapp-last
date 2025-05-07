@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
-import { FaMapMarkedAlt, FaRoute, FaCalendarAlt, FaMapMarkerAlt, FaClock, FaTruck, FaFilter, FaSearch, FaPlus, FaEye, FaEyeSlash, FaDirections } from 'react-icons/fa';
+import { FaMapMarkedAlt, FaRoute, FaCalendarAlt, FaMapMarkerAlt, FaClock, FaTruck, FaFilter, FaSearch, FaPlus, FaEye, FaEyeSlash, FaDirections, FaTimes } from 'react-icons/fa';
 import Link from 'next/link';
 import FreelanceLayout from '../../../components/portal/FreelanceLayout';
 
@@ -481,7 +481,7 @@ export default function FreelanceRoutes() {
                     className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
                   >
                     <FaDirections className="mr-2 -ml-1 h-4 w-4" />
-                    Google Haritalar'da Aç
+                    Google Haritalar&apos;da Aç
                   </button>
                 </div>
               </div>
