@@ -2073,7 +2073,7 @@ export default function MusteriSayfasi() {
     
     // Kampanya hesaplaması yapılmayacak, direkt base fiyatı kullanılacak
     setBasePrice(base);
-    setCalculatedPrice(base);
+      setCalculatedPrice(base);
   };
 
   // Mesafe değiştiğinde fiyatı otomatik hesapla

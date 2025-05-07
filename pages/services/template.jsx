@@ -4,7 +4,7 @@ import {
   FaTruck, FaClock, FaMapMarkedAlt, FaBoxOpen, FaBox, 
   FaShieldAlt, FaArrowLeft, FaSpinner, FaMoneyBillWave, FaRuler,
   FaMapPin, FaLocationArrow, FaImage, FaTimes, FaCheckCircle, FaInfoCircle, FaBolt, FaCalendar,
-  FaBars, FaUser, FaSignOutAlt, FaSearch, FaArrowRight
+  FaBars, FaUser, FaSignOutAlt, FaSearch, FaArrowRight, FaLock, FaStar, FaPhone, FaCreditCard
 } from 'react-icons/fa'
 import { 
   useLoadScript, 
@@ -849,6 +849,14 @@ export default function ServiceTemplatePage({ service, serviceId }) {
       // Fiyatı güncelle
       const price = calculateEstimatedPrice();
       setEstimatedPrice(price);
+      
+      // Özet bölümüne scroll et
+      setTimeout(() => {
+        const summarySection = document.getElementById('transport-summary-section');
+        if (summarySection) {
+          summarySection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
     }
   }, [showSummary]);
 
@@ -898,6 +906,13 @@ export default function ServiceTemplatePage({ service, serviceId }) {
 
   // Taşıma talebi oluşturma fonksiyonu
   const createTransportRequest = async () => {
+    // Kullanıcının giriş yapıp yapmadığını kontrol et
+    if (!isAuthenticated && !session) {
+      // Kullanıcı giriş yapmamışsa auth modalı göster
+      setShowAuthModal(true);
+      return;
+    }
+
     if (!pickupMarker || !deliveryMarker || !distance) {
       setRequestError('Lütfen taşıma bilgilerini doğru şekilde doldurun');
       return;
@@ -1021,6 +1036,295 @@ export default function ServiceTemplatePage({ service, serviceId }) {
       setRouteChanged(false);
     }
   }, [showTransportDetails]);
+
+  // Telefon numarası gönderme işlemi
+  const handleSubmitPhone = async (e) => {
+    e.preventDefault();
+    
+    // Telefon numarası doğrulaması
+    if (!phoneNumber || phoneNumber.trim().length < 10) {
+      setAuthError('Lütfen geçerli bir telefon numarası girin');
+      return;
+    }
+    
+    setIsSubmittingPhone(true);
+    setAuthError('');
+    
+    try {
+      // Burada OTP göndermek için API çağrısı yapılacak
+      // Örnek API çağrısı:
+      // const response = await fetch('/api/auth/send-otp', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ phoneNumber })
+      // });
+      // const data = await response.json();
+      
+      // API çağrısı olmadığı için şimdilik direkt OTP adımına geçelim
+      setTimeout(() => {
+        setAuthStep('otp');
+        setIsSubmittingPhone(false);
+      }, 1000);
+    } catch (error) {
+      console.error('OTP gönderme hatası:', error);
+      setAuthError('OTP gönderilirken bir hata oluştu. Lütfen tekrar deneyin.');
+      setIsSubmittingPhone(false);
+    }
+  };
+
+  // OTP doğrulama işlemi
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    
+    // OTP doğrulaması
+    if (!otpCode || otpCode.trim().length < 4) {
+      setAuthError('Lütfen geçerli bir doğrulama kodu girin');
+      return;
+    }
+    
+    setIsVerifyingOtp(true);
+    setAuthError('');
+    
+    try {
+      // Burada OTP doğrulaması için API çağrısı yapılacak
+      // Örnek API çağrısı:
+      // const response = await fetch('/api/auth/verify-otp', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ phoneNumber, otpCode })
+      // });
+      // const data = await response.json();
+      
+      // API çağrısı olmadığı için şimdilik direkt başarılı sayalım
+      setTimeout(() => {
+        setShowAuthModal(false);
+        setIsVerifyingOtp(false);
+        
+        // OTP doğrulaması başarılıysa kullanıcı oturumunu başlat
+        // Bu kısım gerçek uygulamada useAuth hook'u ile yapılacak
+        // login({ phone: phoneNumber });
+        
+        // Taşıyıcı arama modalını göster
+        setShowSearchingModal(true);
+        setSearchStep('searching');
+        startSearchSimulation();
+        
+        // Ardından taşıma talebini oluştur (arka planda)
+        handleCreateRequestAfterAuth();
+      }, 1000);
+    } catch (error) {
+      console.error('OTP doğrulama hatası:', error);
+      setAuthError('Doğrulama kodu hatalı veya süresi dolmuş. Lütfen tekrar deneyin.');
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  // Taşıyıcı arama simülasyonu
+  const startSearchSimulation = () => {
+    // Taşıyıcı arama simülasyonu için zamanlayıcı
+    setSearchingTimer(0);
+    
+    const interval = setInterval(() => {
+      setSearchingTimer(prevTimer => {
+        const newTimer = prevTimer + 1;
+        
+        // 5 saniye sonra "Taşıyıcı bulundu" aşamasına geç
+        if (newTimer === 5) {
+          setSearchStep('found');
+          setSelectedCarrier({
+            name: "Mehmet Yılmaz",
+            photo: "/driver-avatar.png",
+            rating: 4.8,
+            vehicle: "Ford Transit",
+            plate: "34 AB 1234",
+            phone: "5551234567"
+          });
+        }
+        
+        // 8 saniye sonra "Onay bekleniyor" aşamasına geç
+        if (newTimer === 8) {
+          setSearchStep('waiting');
+        }
+        
+        // 15 saniye sonra "Onaylandı" aşamasına geç ve modalı kapat
+        if (newTimer === 15) {
+          setSearchStep('approved');
+          
+          // Belli bir süre sonra taşıyıcı arama modalını kapat ve ödeme modalını aç
+          setTimeout(() => {
+            setShowSearchingModal(false);
+            setShowPaymentModal(true);
+          }, 2000);
+          
+          clearInterval(interval);
+        }
+        
+        return newTimer;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  };
+
+  // Telefon doğrulaması sonrası taşıma talebi oluşturma
+  const handleCreateRequestAfterAuth = async () => {
+    setIsLoading(true);
+    setRequestError('');
+
+    try {
+      // Tarih ve saati birleştir
+      const loadingDateTime = selectedTimeOption === 'asap' 
+        ? '2-3 saat içinde'
+        : selectedDate && selectedTime 
+          ? `${selectedDate}T${selectedTime}:00` 
+          : new Date().toISOString();
+
+      // Paket görüntülerini base64'e dönüştür (Gerçek uygulamada dosya yükleme servisi kullanılmalı)
+      const imagePromises = packageImages.map(image => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.readAsDataURL(image);
+        });
+      });
+      
+      const packageImagesBase64 = await Promise.all(imagePromises);
+
+      // API'ye gönderilecek verileri hazırla
+      const requestData = {
+        // Müşteri Bilgileri - gerçek uygulamada oturum bilgilerinden alınacak
+        customerName: 'Test Kullanıcı', // Kullanıcı adı
+        customerPhone: '5553334444',    // Kullanıcı telefonu
+        
+        // Lokasyon Bilgileri
+        pickupLocation: pickup,
+        deliveryLocation: delivery,
+        pickupMarker: pickupMarker,
+        deliveryMarker: deliveryMarker,
+        distance: distance || 0,
+        
+        // Taşıma Detayları
+        selectedTimeOption: selectedTimeOption,
+        selectedDate: selectedDate,
+        selectedTime: selectedTime,
+        loadingDate: loadingDateTime,
+        
+        // Servis Bilgileri
+        transportType: service?.name || '',
+        transportTypeId: service?._id || serviceId || '',
+        transportTypes: [service?._id || serviceId || ''],
+        vehicle: service?.vehicleType || '',
+        
+        // Paket Bilgileri
+        packageInfo: packageInfo,
+        packageCount: packageCount,
+        packageWeight: packageWeight,
+        packageVolume: packageVolume,
+        packageImages: packageImagesBase64,
+        
+        // İçerik Detayları
+        contentDetails: {
+          weight: packageWeight || 0,
+          volume: packageVolume || 0,
+          pieces: packageCount || 1,
+          description: '',
+          specialNotes: '',
+          selectedSubtitle: packageInfo || {}
+        },
+        
+        // Not
+        notes: packageDetails.notes || '',
+        
+        // Durum Bilgileri
+        status: 'new',
+        currentStep: 1,
+        
+        // Fiyat
+        price: estimatedPrice || 0
+      };
+      
+      console.log('Gönderilecek veriler:', requestData);
+      
+      const response = await fetch('/api/admin/requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('Talep başarıyla oluşturuldu:', result);
+        setRequestSuccess(true);
+        setRequestId(result.request?.id || result.request?._id);
+        
+        // Kullanıcıyı anasayfaya yönlendir (3 sn sonra)
+        setTimeout(() => {
+          router.push('/');
+        }, 3000);
+      } else {
+        console.error('Talep oluşturma hatası:', result);
+        setRequestError('Talep oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.');
+      }
+    } catch (error) {
+      console.error('Talep oluşturma işlemi sırasında hata:', error);
+      setRequestError('Talep oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Yeni state değişkenleri ekleyelim
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authStep, setAuthStep] = useState('phone'); // 'phone' veya 'otp'
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [isSubmittingPhone, setIsSubmittingPhone] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [showSearchingModal, setShowSearchingModal] = useState(false);
+  const [searchStep, setSearchStep] = useState('searching'); // 'searching', 'waiting', 'found', 'approved'
+  const [searchingTimer, setSearchingTimer] = useState(0);
+  const [selectedCarrier, setSelectedCarrier] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
+  // Modal stilleri
+  const [modalBlur, setModalBlur] = useState(false);
+
+  // CustomModal bileşeni
+  const CustomModal = ({ isOpen, onClose, children }) => {
+    // Modal açıldığında body'e overflow-hidden ekle, kapandığında kaldır
+    useEffect(() => {
+      if (isOpen) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+      }
+      
+      // Cleanup fonksiyonu
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }, [isOpen]);
+    
+    if (!isOpen) return null;
+  
+    return (
+      <div 
+        className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <div 
+          className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl"
+          onClick={e => e.stopPropagation()}
+        >
+          {children}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1937,12 +2241,12 @@ export default function ServiceTemplatePage({ service, serviceId }) {
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="text-sm text-gray-500">Toplam Tutar</p>
-                        <p className="text-2xl font-bold text-gray-800">{formatCurrency(estimatedPrice)}</p>
+                        <p className="text-2xl font-bold text-orange-500">{formatCurrency(estimatedPrice)}</p>
                         <p className="text-xs text-gray-500 mt-1">*Tahmini fiyat, kesin fiyat onay sonrası belirlenecektir.</p>
                       </div>
                       
                       <button
-                        className={`py-3 px-6 ${isLoading ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'} text-white font-medium rounded-lg transition-colors shadow-sm flex items-center`}
+                        className={`py-3 px-6 ${isLoading ? 'bg-gray-400' : 'bg-orange-500 hover:bg-orange-600'} text-white font-medium rounded-lg transition-colors shadow-sm flex items-center`}
                         onClick={createTransportRequest}
                         disabled={isLoading}
                       >
@@ -1952,7 +2256,7 @@ export default function ServiceTemplatePage({ service, serviceId }) {
                             İşleniyor...
                           </>
                         ) : (
-                          'Taşıma Talebi Oluştur'
+                          'Taşıyıcı Bul'
                         )}
                       </button>
                     </div>
@@ -2017,6 +2321,494 @@ export default function ServiceTemplatePage({ service, serviceId }) {
           </div>
         </div>
       </div>
+
+      {/* Telefon Numarası ve OTP Doğrulama Modalı */}
+      {showAuthModal && (
+        <CustomModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)}>
+          <div className="p-6">
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">İletişim Bilgileri</h2>
+              <button
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                onClick={() => setShowAuthModal(false)}
+              >
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
+              {/* Sol Taraf - Telefon ve Kod Doğrulama */}
+              <div className="space-y-4 sm:space-y-6">
+                {authStep === 'phone' ? (
+                  <div>
+                    <h3 className="font-semibold text-base sm:text-lg mb-2 sm:mb-3">Telefon Numarası</h3>
+                    <form onSubmit={handleSubmitPhone}>
+                      <div className="space-y-3 sm:space-y-4">
+                        <div className="flex items-center">
+                          <span className="bg-gray-100 p-2 sm:p-3 rounded-l-lg border border-r-0 border-gray-300 text-gray-600 text-sm sm:text-base">+90</span>
+                          <input
+                            type="text"
+                            value={phoneNumber}
+                            onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, '').substring(0, 10))}
+                            className="flex-1 p-2 sm:p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm sm:text-base"
+                            placeholder="5XX XXX XX XX"
+                          />
+                        </div>
+                        
+                        <button
+                          type="submit"
+                          className={`w-full px-4 py-2 rounded-lg transition ${
+                            phoneNumber.length === 10
+                              ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          }`}
+                          disabled={phoneNumber.length !== 10 || isSubmittingPhone}
+                        >
+                          {isSubmittingPhone ? (
+                            <>
+                              <FaSpinner className="animate-spin inline mr-2" />
+                              Gönderiliyor...
+                            </>
+                          ) : (
+                            'Kod Gönder'
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                ) : (
+                  <div>
+                    <h3 className="font-semibold text-base sm:text-lg mb-2 sm:mb-3">Doğrulama Kodu</h3>
+                    <form onSubmit={handleVerifyOtp}>
+                      <div className="space-y-3 sm:space-y-4">
+                        <input
+                          type="text"
+                          maxLength="6"
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                          className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-center text-2xl tracking-widest"
+                          placeholder="000000"
+                        />
+                        <button
+                          type="submit"
+                          className={`w-full px-4 py-2 rounded-lg transition ${
+                            otpCode.length === 6
+                              ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          }`}
+                          disabled={otpCode.length !== 6 || isVerifyingOtp}
+                        >
+                          {isVerifyingOtp ? (
+                            <>
+                              <FaSpinner className="animate-spin inline mr-2" />
+                              Doğrulanıyor...
+                            </>
+                          ) : (
+                            'Doğrula'
+                          )}
+                        </button>
+                        
+                        {authStep === 'otp' && (
+                          <button
+                            type="button"
+                            onClick={() => setAuthStep('phone')}
+                            className="w-full mt-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
+                          >
+                            Telefon Numarasını Değiştir
+                          </button>
+                        )}
+                      </div>
+                    </form>
+                  </div>
+                )}
+                
+                {authError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                    {authError}
+                  </div>
+                )}
+              </div>
+
+              {/* Sağ Taraf - Bilgilendirme */}
+              <div className="bg-gray-50 p-4 sm:p-6 rounded-lg">
+                <h3 className="font-semibold text-base sm:text-lg mb-2 sm:mb-3">Bilgilendirme</h3>
+                <p className="text-gray-600 text-sm sm:text-base flex items-center mb-2">
+                  Telefon numaranızı kimse ile paylaşmıyoruz.
+                  <FaLock className="text-green-500 ml-2" />
+                </p>
+                <div className="mt-4 p-3 bg-orange-50 border border-orange-100 rounded-lg">
+                  <div className="flex items-start">
+                    <FaInfoCircle className="text-orange-500 mt-1 mr-2 flex-shrink-0" />
+                    <p className="text-sm text-orange-800">
+                      Üye girişi yapmadan devam ediyorsunuz. Siparişinizin geçmişini görmek ve kampanyalı fiyatlardan yararlanmak için giriş yapabilir veya kayıt olabilirsiniz.
+                    </p>
+                  </div>
+                  
+                  <div className="flex space-x-3 mt-3">
+                    <button 
+                      onClick={() => router.push('/login')}
+                      className="flex-1 text-center bg-white border border-orange-300 text-orange-700 px-3 py-2 rounded-lg font-medium text-sm hover:bg-orange-50 transition-colors"
+                    >
+                      Giriş Yap
+                    </button>
+                    <button 
+                      onClick={() => router.push('/register')}
+                      className="flex-1 text-center bg-white border border-orange-300 text-orange-700 px-3 py-2 rounded-lg font-medium text-sm hover:bg-orange-50 transition-colors"
+                    >
+                      Kayıt Ol
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                  <div className="flex items-start">
+                    <div className="bg-blue-100 p-2 rounded-full mr-2 flex-shrink-0">
+                      <FaShieldAlt className="text-blue-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-blue-800 text-sm">Hesap Avantajları</h4>
+                      <ul className="mt-2 space-y-2 text-xs text-blue-700">
+                        <li className="flex items-start">
+                          <FaCheckCircle className="text-blue-600 mt-0.5 mr-1 flex-shrink-0" />
+                          <span>Tüm taşıma geçmişinizi tek yerden görün</span>
+                        </li>
+                        <li className="flex items-start">
+                          <FaCheckCircle className="text-blue-600 mt-0.5 mr-1 flex-shrink-0" />
+                          <span>Özel kampanya ve indirimlerden yararlanın</span>
+                        </li>
+                        <li className="flex items-start">
+                          <FaCheckCircle className="text-blue-600 mt-0.5 mr-1 flex-shrink-0" />
+                          <span>Tekrar eden taşıma işlemlerinizi daha hızlı gerçekleştirin</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CustomModal>
+      )}
+
+      {/* Taşıyıcı Arama ve Onay Bekleme Modalı */}
+      {showSearchingModal && (
+        <CustomModal isOpen={showSearchingModal} onClose={() => setShowSearchingModal(false)}>
+          <div className="p-6">
+            {searchStep === 'searching' && (
+              <div className="text-center">
+                <div className="mb-6">
+                  <FaSpinner className="animate-spin text-orange-500 w-16 h-16 mx-auto" />
+                </div>
+                <h2 className="text-2xl font-bold mb-4">Taşıyıcı Aranıyor</h2>
+                <p className="text-gray-600 mb-6">Taşıma talebiniz için en uygun taşıyıcıyı arıyoruz. Bu işlem birkaç dakika sürebilir.</p>
+                
+                <div className="bg-gray-50 p-4 rounded-lg mb-6">
+                  <div className="flex justify-between items-center text-sm text-gray-500">
+                    <span>Arama süresi:</span>
+                    <span>{searchingTimer} saniye</span>
+                  </div>
+                </div>
+                
+                <button
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                  onClick={() => setShowSearchingModal(false)}
+                >
+                  İptal
+                </button>
+              </div>
+            )}
+            
+            {searchStep === 'found' && selectedCarrier && (
+              <div className="text-center">
+                <div className="mb-6">
+                  <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+                    <FaTruck className="text-green-500 w-8 h-8" />
+                  </div>
+                </div>
+                <h2 className="text-2xl font-bold mb-4">Taşıyıcı Bulundu!</h2>
+                <p className="text-gray-600 mb-6">Taşıma talebiniz için uygun bir taşıyıcı bulduk.</p>
+                
+                <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 mr-4">
+                      <div className="w-16 h-16 rounded-full bg-gray-200 overflow-hidden">
+                        <img 
+                          src={selectedCarrier.photo || "/default-avatar.png"} 
+                          alt={selectedCarrier.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {e.target.src = "/default-avatar.png"}}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900">{selectedCarrier.name}</h3>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <div className="flex items-center mr-3">
+                          <FaStar className="text-yellow-400 mr-1" />
+                          <span>{selectedCarrier.rating}</span>
+                        </div>
+                        <span>{selectedCarrier.vehicle} • {selectedCarrier.plate}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t border-gray-200 mt-4 pt-4">
+                    <p className="text-sm text-gray-600 mb-2">Taşıyıcının taşıma talebinizi onaylaması bekleniyor...</p>
+                    <div className="flex items-center justify-center">
+                      <FaSpinner className="animate-spin text-orange-500 mr-2" />
+                      <span className="text-sm font-medium">Taşıyıcı yanıtı bekleniyor</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <button
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                  onClick={() => setShowSearchingModal(false)}
+                >
+                  İptal
+                </button>
+              </div>
+            )}
+            
+            {searchStep === 'waiting' && selectedCarrier && (
+              <div className="text-center">
+                <div className="mb-6">
+                  <div className="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center">
+                    <FaClock className="text-blue-500 w-8 h-8" />
+                  </div>
+                </div>
+                <h2 className="text-2xl font-bold mb-4">Taşıyıcı Onayı Bekleniyor</h2>
+                <p className="text-gray-600 mb-6">Taşıyıcı, taşıma talebinizi inceliyor.</p>
+                
+                <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 mr-4">
+                      <div className="w-16 h-16 rounded-full bg-gray-200 overflow-hidden">
+                        <img 
+                          src={selectedCarrier.photo || "/default-avatar.png"} 
+                          alt={selectedCarrier.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {e.target.src = "/default-avatar.png"}}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900">{selectedCarrier.name}</h3>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <div className="flex items-center mr-3">
+                          <FaStar className="text-yellow-400 mr-1" />
+                          <span>{selectedCarrier.rating}</span>
+                        </div>
+                        <span>{selectedCarrier.vehicle} • {selectedCarrier.plate}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-blue-50 p-3 mt-4 rounded-lg text-sm text-blue-800">
+                    Taşıyıcı, taşıma talebinizi inceliyor. Onaylandığında sizinle iletişime geçecektir. Bu süreç genellikle 5-10 dakika sürer.
+                  </div>
+                </div>
+                
+                <button
+                  className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium rounded-lg transition-colors"
+                  onClick={() => setShowSearchingModal(false)}
+                >
+                  Kapat
+                </button>
+              </div>
+            )}
+            
+            {searchStep === 'approved' && selectedCarrier && (
+              <div className="text-center">
+                <div className="mb-6">
+                  <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+                    <FaCheckCircle className="text-green-500 w-8 h-8" />
+                  </div>
+                </div>
+                <h2 className="text-2xl font-bold mb-4">Taşıma Talebi Onaylandı!</h2>
+                <p className="text-gray-600 mb-6">Taşıyıcı taşıma talebinizi onayladı.</p>
+                
+                <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0 mr-4">
+                      <div className="w-16 h-16 rounded-full bg-gray-200 overflow-hidden">
+                        <img 
+                          src={selectedCarrier.photo || "/default-avatar.png"} 
+                          alt={selectedCarrier.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {e.target.src = "/default-avatar.png"}}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900">{selectedCarrier.name}</h3>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <div className="flex items-center mr-3">
+                          <FaStar className="text-yellow-400 mr-1" />
+                          <span>{selectedCarrier.rating}</span>
+                        </div>
+                        <span>{selectedCarrier.vehicle} • {selectedCarrier.plate}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-green-50 p-3 mt-4 rounded-lg text-sm text-green-800">
+                    Taşıyıcı yakında sizinle iletişime geçecek. Taşıma durumunu "Siparişlerim" sayfasından takip edebilirsiniz.
+                  </div>
+                  
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <button 
+                      className="bg-blue-50 text-blue-700 px-3 py-2.5 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center"
+                      onClick={() => window.open(`tel:+90${selectedCarrier.phone}`)}
+                    >
+                      <FaPhone className="mr-2" />
+                      <span>Taşıyıcıyı Ara</span>
+                    </button>
+                    
+                    <button 
+                      className="bg-green-50 text-green-700 px-3 py-2.5 rounded-lg hover:bg-green-100 transition-colors flex items-center justify-center"
+                      onClick={() => router.push('/profile/orders')}
+                    >
+                      <FaTruck className="mr-2" />
+                      <span>Siparişlerim</span>
+                    </button>
+                  </div>
+                </div>
+                
+                <button
+                  className="px-5 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors"
+                  onClick={() => router.push('/')}
+                >
+                  Ana Sayfaya Dön
+                </button>
+              </div>
+            )}
+          </div>
+        </CustomModal>
+      )}
+
+      {/* Ödeme Modalı */}
+      {showPaymentModal && (
+        <CustomModal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)}>
+          <div className="p-6">
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Ödeme</h2>
+              <button
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                onClick={() => setShowPaymentModal(false)}
+              >
+                <svg className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="bg-gray-50 p-4 rounded-lg mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-gray-600">Toplam Tutar</span>
+                <div className="text-right">
+                  {activeCampaign ? (
+                    <>
+                      <p className="line-through text-gray-400 text-sm mb-1">
+                        {formatCurrency(basePrice)} TL
+                      </p>
+                      <span className="text-2xl font-bold text-green-600">{formatCurrency(estimatedPrice)} TL</span>
+                    </>
+                  ) : (
+                    <span className="text-2xl font-bold text-orange-600">{formatCurrency(estimatedPrice)} TL</span>
+                  )}
+                </div>
+              </div>
+              <div className="text-sm text-gray-500 mb-4">
+                * Fiyatlar KDV dahildir
+              </div>
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Kampanya Seç
+                </label>
+                <select
+                  className="w-full border px-3 py-2 rounded-md bg-white"
+                  value={activeCampaign?._id || ''}
+                  onChange={handleDropdownChange}
+                >
+                  <option value="">Kampanya Seçin</option>
+                  {availableCampaigns.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name} - {c.discountType === 'percentage' ? `%${c.discountValue}` : `${formatCurrency(c.discountValue)} TL`} indirim
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Ödeme Yöntemi</h3>
+              
+              <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                <input type="radio" name="payment" className="mr-3" defaultChecked />
+                <div className="flex items-center">
+                  <FaCreditCard className="text-orange-500 mr-2" />
+                  <span>Kredi Kartı</span>
+                </div>
+              </label>
+              
+              <div className="space-y-4 mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Kart Numarası</label>
+                  <input
+                    type="text"
+                    placeholder="0000 0000 0000 0000"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Son Kullanma Tarihi</label>
+                    <input
+                      type="text"
+                      placeholder="AA/YY"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CVV</label>
+                    <input
+                      type="text"
+                      placeholder="000"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Kart Üzerindeki İsim</label>
+                  <input
+                    type="text"
+                    placeholder="Ad Soyad"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+              </div>
+              
+              <button
+                className="w-full mt-6 py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors"
+                onClick={() => setShowPaymentModal(false)}
+              >
+                Ödemeyi Tamamla
+              </button>
+            </div>
+          </div>
+        </CustomModal>
+      )}
+
+      {/* Modal stilleri */}
+      <style jsx>{`
+        .modal-blur {
+          filter: blur(4px);
+          transition: filter 0.3s ease;
+        }
+      `}</style>
     </div>
   )
 }

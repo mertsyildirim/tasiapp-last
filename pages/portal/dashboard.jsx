@@ -951,7 +951,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 gap-6 pb-6">
               
               {/* 1. İstatistik Kutucukları */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white rounded-lg shadow-md p-5">
                   <div className="flex justify-between items-center mb-3">
                     <div className="p-3 bg-orange-100 rounded-full">
@@ -1080,7 +1080,7 @@ export default function Dashboard() {
               </div>
 
               {/* Ödemelerim ve Faturalarım */}
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Ödemelerim */}
                 <div>
                   <div className="flex items-center justify-between mb-4">

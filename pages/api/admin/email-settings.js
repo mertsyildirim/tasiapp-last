@@ -4,6 +4,7 @@ import { setupCORS, handleOptionsRequest, sendSuccess, sendError, logRequest } f
 import jwt from 'jsonwebtoken';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/admin/[...nextauth].js';
+import nodemailer from 'nodemailer';
 
 /**
  * E-posta ayarlarını doğrulama
@@ -11,8 +12,25 @@ import { authOptions } from '../auth/admin/[...nextauth].js';
 function validateEmailSettings(settings) {
   const { smtpHost, smtpPort, smtpUser, smtpPassword, senderName, senderEmail, useSSL } = settings;
   
-  if (!smtpHost || !smtpPort || !smtpUser || !senderName || !senderEmail) {
-    return { isValid: false, message: 'SMTP sunucu, port, kullanıcı, gönderen adı ve e-posta zorunludur' };
+  // Zorunlu alanların varlığını ve boş olup olmadığını kontrol et
+  if (!smtpHost || smtpHost.trim() === '') {
+    return { isValid: false, message: 'SMTP sunucu alanı boş olamaz' };
+  }
+  
+  if (!smtpPort || smtpPort.toString().trim() === '') {
+    return { isValid: false, message: 'SMTP port alanı boş olamaz' };
+  }
+  
+  if (!smtpUser || smtpUser.trim() === '') {
+    return { isValid: false, message: 'SMTP kullanıcı adı boş olamaz' };
+  }
+  
+  if (!senderName || senderName.trim() === '') {
+    return { isValid: false, message: 'Gönderen adı boş olamaz' };
+  }
+  
+  if (!senderEmail || senderEmail.trim() === '') {
+    return { isValid: false, message: 'Gönderen e-posta adresi boş olamaz' };
   }
   
   // Port numarası kontrolü
@@ -22,8 +40,12 @@ function validateEmailSettings(settings) {
   
   // E-posta formatı kontrolü
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(senderEmail) || !emailRegex.test(smtpUser)) {
-    return { isValid: false, message: 'Geçersiz e-posta formatı' };
+  if (!emailRegex.test(senderEmail.trim())) {
+    return { isValid: false, message: 'Geçersiz gönderen e-posta formatı' };
+  }
+  
+  if (!emailRegex.test(smtpUser.trim())) {
+    return { isValid: false, message: 'Geçersiz SMTP kullanıcı e-posta formatı' };
   }
   
   return { isValid: true };
@@ -42,14 +64,17 @@ async function getEmailSettings(req, res) {
     if (!settings) {
       // Ayarlar bulunamadıysa varsayılan değerleri döndür
       return sendSuccess(res, {
-        smtpHost: 'smtp.gmail.com',
-        smtpPort: 587,
-        smtpUser: 'bildirim@tasiapp.com',
-        smtpPassword: '', // Güvenlik nedeniyle şifre gönderilmez
-        senderName: 'Taşı App',
-        senderEmail: 'bildirim@tasiapp.com',
-        useSSL: true,
-        lastUpdated: new Date()
+        data: {
+          smtpHost: 'smtp.gmail.com',
+          smtpPort: 587,
+          smtpUser: 'bildirim@tasiapp.com',
+          smtpPassword: '', // Güvenlik nedeniyle şifre gönderilmez
+          senderName: 'Taşı App',
+          senderEmail: 'bildirim@tasiapp.com',
+          useSSL: true,
+          lastUpdated: new Date()
+        },
+        message: 'Henüz ayarlanmış e-posta ayarları bulunamadı, varsayılan değerler gösteriliyor'
       });
     }
     
@@ -59,10 +84,19 @@ async function getEmailSettings(req, res) {
       smtpPassword: settings.smtpPassword ? '********' : ''
     };
     
-    return sendSuccess(res, result);
+    // Gereksiz _id ve type gibi alanları çıkar
+    delete result._id;
+    delete result.type;
+    
+    // Başarılı yanıt döndür
+    return sendSuccess(res, {
+      data: result,
+      message: 'E-posta ayarları başarıyla getirildi',
+      lastUpdated: settings.lastUpdated
+    });
   } catch (error) {
     console.error('E-posta ayarları getirilirken hata:', error);
-    return sendError(res, 'E-posta ayarları getirilirken bir hata oluştu', 500);
+    return sendError(res, 'E-posta ayarları getirilirken bir hata oluştu: ' + error.message, 500);
   }
 }
 
@@ -73,16 +107,23 @@ async function updateEmailSettings(req, res) {
   try {
     const { smtpHost, smtpPort, smtpUser, smtpPassword, senderName, senderEmail, useSSL } = req.body;
     
+    console.log('Gelen ayarlar:', { smtpHost, smtpPort, smtpUser, senderName, senderEmail, useSSL });
+    
+    // Gelen veriler uygun veri tipinde olmalı
+    const cleanSettings = {
+      smtpHost: typeof smtpHost === 'string' ? smtpHost.trim() : '',
+      smtpPort: parseInt(smtpPort || '587', 10),
+      smtpUser: typeof smtpUser === 'string' ? smtpUser.trim() : '',
+      smtpPassword,
+      senderName: typeof senderName === 'string' ? senderName.trim() : '',
+      senderEmail: typeof senderEmail === 'string' ? senderEmail.trim() : '',
+      useSSL: Boolean(useSSL)
+    };
+    
+    console.log('Temizlenmiş ayarlar:', cleanSettings);
+    
     // Ayarları doğrula
-    const validation = validateEmailSettings({
-      smtpHost, 
-      smtpPort, 
-      smtpUser, 
-      smtpPassword, 
-      senderName, 
-      senderEmail, 
-      useSSL
-    });
+    const validation = validateEmailSettings(cleanSettings);
     
     if (!validation.isValid) {
       return sendError(res, validation.message, 400);
@@ -98,6 +139,32 @@ async function updateEmailSettings(req, res) {
     if (smtpPassword === '********' && existingSettings) {
       // Şifre değişmediyse mevcut şifreyi kullan
       updatedPassword = existingSettings.smtpPassword;
+    } else if (smtpPassword && smtpPassword !== '********') {
+      // Şifre değiştiyse, yeni şifreyi test et
+      try {
+        // Nodemailer transporter oluştur
+        const testTransporter = nodemailer.createTransport({
+          host: cleanSettings.smtpHost,
+          port: cleanSettings.smtpPort,
+          secure: cleanSettings.useSSL,
+          auth: {
+            user: cleanSettings.smtpUser,
+            pass: smtpPassword
+          },
+          tls: {
+            rejectUnauthorized: false
+          }
+        });
+        
+        // Bağlantıyı test et (e-posta göndermeden)
+        await testTransporter.verify();
+        
+        // Şifre doğrulandı, kullanılabilir
+        console.log('SMTP şifre doğrulandı');
+      } catch (verifyError) {
+        console.error('SMTP bağlantı doğrulama hatası:', verifyError);
+        return sendError(res, `SMTP bağlantısı doğrulanamadı: ${verifyError.message}`, 400);
+      }
     }
     
     // Ayarları kaydet veya güncelle
@@ -105,13 +172,13 @@ async function updateEmailSettings(req, res) {
       { type: 'email' },
       { 
         $set: {
-          smtpHost,
-          smtpPort: parseInt(smtpPort),
-          smtpUser,
+          smtpHost: cleanSettings.smtpHost,
+          smtpPort: cleanSettings.smtpPort,
+          smtpUser: cleanSettings.smtpUser,
           smtpPassword: updatedPassword,
-          senderName,
-          senderEmail,
-          useSSL: Boolean(useSSL),
+          senderName: cleanSettings.senderName,
+          senderEmail: cleanSettings.senderEmail,
+          useSSL: cleanSettings.useSSL,
           lastUpdated: new Date()
         } 
       },
@@ -124,7 +191,7 @@ async function updateEmailSettings(req, res) {
     });
   } catch (error) {
     console.error('E-posta ayarları güncellenirken hata:', error);
-    return sendError(res, 'E-posta ayarları güncellenirken bir hata oluştu', 500);
+    return sendError(res, 'E-posta ayarları güncellenirken bir hata oluştu: ' + error.message, 500);
   }
 }
 
@@ -145,17 +212,57 @@ async function sendTestEmail(req, res) {
       return sendError(res, 'Geçersiz e-posta formatı', 400);
     }
     
-    // E-posta gönderme işlemi
-    // Not: Gerçek bir e-posta göndermek için nodemailer gibi bir paket kullanılmalıdır
+    // Veritabanından e-posta ayarlarını al
+    const { db } = await connectToDatabase();
+    const settings = await db.collection('settings').findOne({ type: 'email' });
     
-    // Başarılı yanıt
+    if (!settings) {
+      return sendError(res, 'E-posta ayarları bulunamadı, lütfen önce ayarları kaydedin', 400);
+    }
+    
+    // Nodemailer'ı yapılandır
+    const transporter = nodemailer.createTransport({
+      host: settings.smtpHost,
+      port: parseInt(settings.smtpPort),
+      secure: settings.useSSL,
+      auth: {
+        user: settings.smtpUser,
+        pass: settings.smtpPassword
+      },
+      tls: {
+        // Otomatik onaylı sertifikalar için güvenlik kontrolünü devre dışı bırakabilirsiniz
+        rejectUnauthorized: false
+      }
+    });
+    
+    // E-posta içeriğini oluştur
+    const mailOptions = {
+      from: `"${settings.senderName}" <${settings.senderEmail}>`,
+      to: testEmail,
+      subject: 'Taşı.app - Test E-postası',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+          <h1 style="color: #FF6B00; text-align: center;">Taşı.app Test E-postası</h1>
+          <p>Merhaba,</p>
+          <p>Bu bir test e-postasıdır. E-posta ayarlarınız doğru bir şekilde yapılandırılmış ve çalışıyor.</p>
+          <p>Bu e-posta, <strong>${settings.smtpHost}</strong> üzerinden <strong>${settings.smtpUser}</strong> hesabı kullanılarak gönderilmiştir.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="color: #777; font-size: 12px; text-align: center;">© ${new Date().getFullYear()} Taşı.app. Tüm hakları saklıdır.</p>
+        </div>
+      `
+    };
+    
+    // E-postayı gönder
+    await transporter.sendMail(mailOptions);
+    
+    // İşlem başarılı olduysa
     return sendSuccess(res, { 
       success: true, 
       message: `Test e-postası ${testEmail} adresine başarıyla gönderildi` 
     });
   } catch (error) {
     console.error('Test e-postası gönderilirken hata:', error);
-    return sendError(res, 'Test e-postası gönderilirken bir hata oluştu', 500);
+    return sendError(res, 'Test e-postası gönderilirken bir hata oluştu: ' + error.message, 500);
   }
 }
 

@@ -238,7 +238,12 @@ export default function PortalLayout({ children, title = 'Taşıyıcı Portalı'
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showNotifications && !event.target.closest('.notifications-dropdown')) {
+      // Bildirim dropdown'ı dışında bir yere tıklandığında kapat
+      // Ancak bildirim butonuna tıklanması durumunda button.dataset.type='notification-toggle' 
+      // kontrolü ile dropdown'un açılıp kapanmasına izin ver
+      if (showNotifications && 
+          !event.target.closest('.notifications-dropdown') && 
+          !(event.target.closest('button') && event.target.closest('button').dataset.type === 'notification-toggle')) {
         setShowNotifications(false);
       }
     };
@@ -251,7 +256,12 @@ export default function PortalLayout({ children, title = 'Taşıyıcı Portalı'
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (showProfileMenu && !event.target.closest('.profile-dropdown')) {
+      // Profil dropdown'ı dışında bir yere tıklandığında kapat
+      // Ancak profil butonuna tıklanması durumunda button.dataset.type='profile-toggle' 
+      // kontrolü ile dropdown'un açılıp kapanmasına izin ver
+      if (showProfileMenu && 
+          !event.target.closest('.profile-dropdown') && 
+          !(event.target.closest('button') && event.target.closest('button').dataset.type === 'profile-toggle')) {
         setShowProfileMenu(false);
       }
     };
@@ -467,6 +477,84 @@ export default function PortalLayout({ children, title = 'Taşıyıcı Portalı'
                         <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-400 ring-1 ring-white"></span>
                       )}
                     </button>
+                    
+                    {/* Mobil bildirim dropdown - mobil görünümde göster */}
+                    {showNotifications && (
+                      <div className="fixed right-3 mt-2 bg-white rounded-md shadow-lg overflow-hidden z-[99999] notifications-dropdown" style={{width: "300px", maxWidth: "calc(100vw - 24px)", top: "4rem"}}>
+                        <div className="py-1">
+                          <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
+                            <div className="flex justify-between items-center">
+                              <h3 className="text-sm font-medium text-gray-700">Sistem Bildirimleri</h3>
+                              {unreadNotificationsCount > 0 && (
+                                <span className="text-xs font-medium px-2 py-1 rounded-full bg-red-100 text-red-800">
+                                  {unreadNotificationsCount} yeni
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {notifications && notifications.length > 0 ? (
+                            <div className="max-h-72 overflow-y-auto">
+                              {notifications.map((notification) => (
+                                <div 
+                                  key={notification.id} 
+                                  className={`px-4 py-3 hover:bg-gray-50 border-b border-gray-100 cursor-pointer ${!notification.read ? 'bg-orange-50' : ''}`}
+                                  onClick={() => markNotificationAsRead(notification.id)}
+                                >
+                                  <div className="flex items-start">
+                                    <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${
+                                      notification.type === 'success' ? 'bg-green-100' : 
+                                      notification.type === 'warning' ? 'bg-yellow-100' : 
+                                      notification.type === 'error' ? 'bg-red-100' : 
+                                      'bg-blue-100'
+                                    }`}>
+                                      {notification.type === 'success' ? (
+                                        <FaCheckCircle className="h-4 w-4 text-green-600" />
+                                      ) : notification.type === 'warning' ? (
+                                        <FaExclamationTriangle className="h-4 w-4 text-yellow-600" />
+                                      ) : notification.type === 'error' ? (
+                                        <FaTimesCircle className="h-4 w-4 text-red-600" />
+                                      ) : (
+                                        <FaBell className="h-4 w-4 text-blue-600" />
+                                      )}
+                                    </div>
+                                    <div className="ml-3 flex-1">
+                                      <p className={`text-sm font-medium ${!notification.read ? 'text-gray-900' : 'text-gray-700'}`}>
+                                        {notification.title}
+                                      </p>
+                                      <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                                        {notification.message}
+                                      </p>
+                                      <p className="text-xs text-gray-400 mt-1">
+                                        {notification.timestamp}
+                                      </p>
+                                    </div>
+                                    {!notification.read && (
+                                      <div className="ml-2 flex-shrink-0">
+                                        <span className="inline-block w-2 h-2 rounded-full bg-orange-500"></span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="px-4 py-6 text-sm text-gray-500 text-center">
+                              <FaEnvelope className="mx-auto h-6 w-6 text-gray-400 mb-2" />
+                              <p>Henüz bildiriminiz bulunmuyor</p>
+                            </div>
+                          )}
+                          <div className="border-t border-gray-200">
+                            <button className="w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-gray-100" onClick={() => router.push('/portal/messages')}>
+                              Tüm Sistem Mesajları
+                            </button>
+                          </div>
+                        </div>
+                        <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-500" onClick={() => setShowNotifications(false)}>
+                          <FaTimes className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Profil butonu */}
@@ -477,6 +565,28 @@ export default function PortalLayout({ children, title = 'Taşıyıcı Portalı'
                     >
                       <FaUser className="h-5 w-5" />
                     </button>
+                    
+                    {/* Mobil profil dropdown */}
+                    {showProfileMenu && (
+                      <div className="fixed right-3 bg-white rounded-md shadow-lg overflow-hidden z-[99999] profile-dropdown" style={{width: "200px", maxWidth: "calc(100vw - 24px)", top: "4rem"}}>
+                        <div className="py-1">
+                          <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => router.push('/portal/profile')}>
+                            Profil
+                          </button>
+                          <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onClick={() => router.push('/portal/settings')}>
+                            Ayarlar
+                          </button>
+                          <div className="border-t border-gray-200">
+                            <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100" onClick={handleLogout}>
+                              Çıkış Yap
+                            </button>
+                          </div>
+                        </div>
+                        <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-500" onClick={() => setShowProfileMenu(false)}>
+                          <FaTimes className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

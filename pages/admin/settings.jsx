@@ -399,6 +399,7 @@ export default function SettingsPage() {
   const loadEmailSettings = async () => {
     try {
       console.log('E-posta ayarları yükleniyor...');
+      setIsSaving(true);
       
       const response = await fetch('/api/admin/email-settings', {
         headers: {
@@ -407,20 +408,41 @@ export default function SettingsPage() {
       });
       
       if (!response.ok) {
-        throw new Error('E-posta ayarları getirilemedi');
+        throw new Error(`E-posta ayarları getirilemedi: ${response.status}`);
       }
       
       const result = await response.json();
       console.log('E-posta ayarları:', result);
       
       if (result && result.success && result.data) {
-        setEmailSettings(result.data);
+        // Gelen veriyi düzgün formatta olduğundan emin olalım
+        const cleanedData = {
+          smtpHost: result.data.smtpHost || '',
+          smtpPort: result.data.smtpPort || '587',
+          smtpUser: result.data.smtpUser || '',
+          smtpPassword: result.data.smtpPassword || '',
+          senderName: result.data.senderName || '',
+          senderEmail: result.data.senderEmail || '',
+          useSSL: result.data.useSSL || false
+        };
+        
+        setEmailSettings(cleanedData);
+        console.log('E-posta ayarları temizlenmiş hali:', cleanedData);
+        
+        // Bilgilendirme mesajı göster (varsa)
+        if (result.message && result.message.includes('varsayılan')) {
+          toast.info(result.message);
+        }
       } else {
         console.error('API yanıt formatı beklenenden farklı:', result);
+        toast.error('E-posta ayarlarını yüklerken bir hata oluştu: Yanıt formatı beklenenden farklı');
       }
     } catch (error) {
       console.error('E-posta ayarları yüklenirken hata:', error);
+      toast.error(`E-posta ayarlarını yüklerken bir hata oluştu: ${error.message}`);
       // Hata olsa da varsayılan ayarlar kullanılacak
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -440,6 +462,32 @@ export default function SettingsPage() {
       setSaveMessage('');
       console.log('E-posta ayarları kaydediliyor...', emailSettings);
       
+      // Zorunlu alanları kontrol et
+      const requiredFields = ['smtpHost', 'smtpPort', 'smtpUser', 'senderName', 'senderEmail'];
+      const missingFields = requiredFields.filter(field => {
+        const value = emailSettings[field];
+        return value === undefined || value === null || String(value).trim() === '';
+      });
+      
+      if (missingFields.length > 0) {
+        const errorMessage = 'Lütfen tüm zorunlu alanları doldurun: ' + 
+          missingFields.map(field => {
+            switch(field) {
+              case 'smtpHost': return 'SMTP Sunucu';
+              case 'smtpPort': return 'SMTP Port';
+              case 'smtpUser': return 'SMTP Kullanıcı Adı';
+              case 'senderName': return 'Gönderen Adı';
+              case 'senderEmail': return 'Gönderen E-posta';
+              default: return field;
+            }
+          }).join(', ');
+        
+        setSaveMessage(`Hata: ${errorMessage}`);
+        toast.error(errorMessage);
+        setIsSaving(false);
+        return;
+      }
+      
       const response = await fetch('/api/admin/email-settings', {
         method: 'POST',
         headers: {
@@ -452,12 +500,17 @@ export default function SettingsPage() {
       
       if (response.ok && data.success) {
         setSaveMessage('E-posta ayarları başarıyla kaydedildi');
+        toast.success('E-posta ayarları başarıyla kaydedildi');
       } else {
-        setSaveMessage(`Hata: ${data.message || 'E-posta ayarları kaydedilemedi'}`);
+        const errorMessage = data.message || 'E-posta ayarları kaydedilemedi';
+        setSaveMessage(`Hata: ${errorMessage}`);
+        toast.error(`E-posta ayarları kaydedilemedi: ${errorMessage}`);
       }
     } catch (error) {
       console.error('E-posta ayarları kaydedilirken hata:', error);
-      setSaveMessage('E-posta ayarları kaydedilirken bir hata oluştu');
+      const errorMessage = error.message || 'Bilinmeyen bir hata oluştu';
+      setSaveMessage(`E-posta ayarları kaydedilirken bir hata oluştu: ${errorMessage}`);
+      toast.error(`E-posta ayarları kaydedilirken bir hata oluştu: ${errorMessage}`);
     } finally {
       setIsSaving(false);
       setTimeout(() => setSaveMessage(''), 5000);
@@ -468,6 +521,7 @@ export default function SettingsPage() {
   const handleSendTestEmail = async () => {
     if (!testEmail) {
       setSaveMessage('Lütfen test için bir e-posta adresi girin');
+      toast.warning('Lütfen test için bir e-posta adresi girin');
       setTimeout(() => setSaveMessage(''), 3000);
       return;
     }
@@ -491,13 +545,19 @@ export default function SettingsPage() {
       const data = await response.json();
       
       if (response.ok && data.success) {
-        setSaveMessage(`Test e-postası başarıyla gönderildi: ${testEmail}`);
+        const successMessage = `Test e-postası başarıyla gönderildi: ${testEmail}`;
+        setSaveMessage(successMessage);
+        toast.success(successMessage);
       } else {
-        setSaveMessage(`Hata: ${data.message || 'Test e-postası gönderilemedi'}`);
+        const errorMessage = data.message || 'Test e-postası gönderilemedi';
+        setSaveMessage(`Hata: ${errorMessage}`);
+        toast.error(`Test e-postası gönderilemedi: ${errorMessage}`);
       }
     } catch (error) {
       console.error('Test e-postası gönderilirken hata:', error);
-      setSaveMessage('Test e-postası gönderilirken bir hata oluştu');
+      const errorMessage = error.message || 'Bilinmeyen bir hata oluştu';
+      setSaveMessage(`Test e-postası gönderilirken bir hata oluştu: ${errorMessage}`);
+      toast.error(`Test e-postası gönderilirken bir hata oluştu: ${errorMessage}`);
     } finally {
       setIsSaving(false);
       setTimeout(() => setSaveMessage(''), 5000);
