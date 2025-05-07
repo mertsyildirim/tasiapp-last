@@ -2655,7 +2655,7 @@ export default function ServiceTemplatePage({ service, serviceId }) {
                   </div>
                   
                   <div className="bg-green-50 p-3 mt-4 rounded-lg text-sm text-green-800">
-                    Taşıyıcı yakında sizinle iletişime geçecek. Taşıma durumunu "Siparişlerim" sayfasından takip edebilirsiniz.
+                    Taşıyıcı yakında sizinle iletişime geçecek. Taşıma durumunu &quot;Siparişlerim&quot; sayfasından takip edebilirsiniz.
                   </div>
                   
                   <div className="mt-4 grid grid-cols-2 gap-3">
