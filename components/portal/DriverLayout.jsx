@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useSession, signOut } from 'next-auth/react';
 import Head from 'next/head';
 import { FaTruck, FaRoute, FaMoneyBillWave, FaUser, FaBell, FaCog, FaSignOutAlt, FaBars, FaTimes, FaTachometerAlt, FaClipboardList, FaFileAlt, FaCalendarAlt, FaClock, FaMapMarkedAlt, FaCheckCircle, FaSpinner } from 'react-icons/fa';
 import Link from 'next/link';
 import Image from 'next/image';
 
-export default function DriverLayout({ children, title = 'Sürücü Paneli', initialDriverStatus = 'active' }) {
+export default function DriverLayout({ children, title = 'Sürücü Paneli', driverStatus = 'active' }) {
   const router = useRouter();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      router.replace('/portal/login');
+    },
+  });
+  
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [driverStatus, setDriverStatus] = useState(initialDriverStatus);
   const [isMobile, setIsMobile] = useState(false);
 
   // Saati güncelle
@@ -28,96 +33,35 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', ini
     return () => clearInterval(interval);
   }, []);
 
-  // Kullanıcı giriş durumunu kontrol et
+  // Ekran boyutu kontrolü
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // API'den kullanıcı bilgilerini al
-        const token = localStorage.getItem('token');
-        if (!token) {
-          router.push('/portal/login?type=driver');
-          return;
-        }
-        
-        // API isteği
-        const response = await fetch('/api/drivers/me', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('Kullanıcı bilgileri alınamadı');
-        }
-        
-        const userData = await response.json();
-        setUser(userData);
-        
-        // Sürücü durumunu al
-        const driverStatusResponse = await fetch('/api/drivers/status', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (driverStatusResponse.ok) {
-          const statusData = await driverStatusResponse.json();
-          setDriverStatus(statusData.status || initialDriverStatus);
-        }
-        
-        // Bildirimleri al
-        const notificationsResponse = await fetch('/api/notifications/driver', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (notificationsResponse.ok) {
-          const notificationsData = await notificationsResponse.json();
-          setNotifications(notificationsData.notifications || []);
-        }
-        
-      } catch (error) {
-        console.error('Auth check error:', error);
-        
-        // Hata durumunda localStorage'dan kullanıcı bilgilerini kontrol et
-        const userData = localStorage.getItem('user');
-        if (!userData) {
-          router.push('/portal/login?type=driver');
-          return;
-        }
-        
-        const user = JSON.parse(userData);
-        if (user.role !== 'driver') {
-          router.push('/portal/login');
-          return;
-        }
-        
-        setUser(user);
-        
-        // Mock bildirimler
-        setNotifications([
-          { id: 1, message: "Yeni bir taşıma görevi atandı: #TRK2024123", time: "Bugün, 14:30" },
-          { id: 2, message: "Mola saatiniz yaklaşıyor", time: "Dün, 10:15" },
-          { id: 3, message: "Sürücü belgeniz için yenileme zamanı yaklaşıyor", time: "2 gün önce" }
-        ]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
     };
 
-    checkAuth();
     handleResize();
     window.addEventListener('resize', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [router, initialDriverStatus]);
+  }, []);
+
+  // Kullanıcı oturumu ve bildirimler
+  useEffect(() => {
+    // Session yüklenmiyorsa işlem yapma
+    if (status === 'loading') return;
+    
+    // Session yoksa veya kullanıcı sürücü değilse işlem yapma (onUnauthenticated ile zaten yönlendiriliyor)
+    if (!session || session.user?.userType !== 'driver') return;
+    
+    // Mock bildirimler ekle (normalde API'den çekilecek)
+    setNotifications([
+      { id: 1, message: "Yeni bir taşıma görevi atandı: #TRK2024123", time: "Bugün, 14:30" },
+      { id: 2, message: "Mola saatiniz yaklaşıyor", time: "Dün, 10:15" },
+      { id: 3, message: "Sürücü belgeniz için yenileme zamanı yaklaşıyor", time: "2 gün önce" }
+    ]);
+  }, [session, status]);
 
   // Bildirim dropdown dışına tıklandığında kapat
   useEffect(() => {
@@ -171,31 +115,10 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', ini
     });
   };
 
-  // Çıkış yap
+  // Next-Auth ile Çıkış yap
   const handleLogout = async () => {
-    try {
-      // API üzerinden çıkış yapma
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('userRole');
-        router.push('/portal/login?type=driver');
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Hata olsa da token ve kullanıcı bilgilerini silip yönlendirme yapıyoruz
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('userRole');
-      router.push('/portal/login?type=driver');
-    }
+    await signOut({ redirect: false });
+    router.push('/portal/login');
   };
 
   // Sürücü menü öğeleri
@@ -235,8 +158,8 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', ini
     }
   };
 
-  // Yükleme ekranı
-  if (loading) {
+  // Yükleme ekranı - session yükleniyorsa
+  if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
@@ -244,9 +167,27 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', ini
     );
   }
 
-  // Kullanıcı giriş yapmamışsa sayfa gösterilmez
-  if (!user) {
+  // Kullanıcı giriş yapmamışsa sayfa gösterilmez (onUnauthenticated ile zaten yönlendiriliyor)
+  if (!session) {
     return null;
+  }
+
+  // Kullanıcı sürücü değilse uyarı mesajı göster
+  if (session.user?.userType !== 'driver') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center p-8 bg-white rounded-lg shadow-md">
+          <p className="text-red-500 font-bold mb-4">Bu sayfaya erişim yetkiniz bulunmamaktadır.</p>
+          <p className="text-gray-600 mb-6">Bu sayfa sadece sürücü kullanıcıları içindir.</p>
+          <button
+            onClick={() => router.push('/portal/dashboard')}
+            className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600"
+          >
+            Ana Sayfaya Dön
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -260,7 +201,7 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', ini
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar - Masaüstü */}
         <div className="hidden md:flex md:flex-shrink-0">
-          <div className="flex flex-col w-64 border-r border-gray-200 bg-white">
+          <div className="flex flex-col w-64 border-r border-gray-200 bg-white h-full">
             <div className="flex flex-col flex-grow pt-5 pb-4 overflow-y-auto">
               <div className="flex items-center flex-shrink-0 px-4 mb-5">
                 <Link href="/portal/driver/dashboard">
@@ -299,11 +240,11 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', ini
                 <div className="flex items-center">
                   <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-orange-100">
                     <span className="text-sm font-medium leading-none text-orange-700">
-                      {user.name ? user.name.charAt(0).toUpperCase() : 'S'}
+                      {session.user?.name ? session.user.name.charAt(0).toUpperCase() : 'S'}
                     </span>
                   </div>
                   <div className="ml-3">
-                    <p className="text-base font-bold text-gray-900">{user.name}</p>
+                    <p className="text-base font-bold text-gray-900">{session.user?.name}</p>
                     <p className="text-sm text-gray-500">Sürücü</p>
                   </div>
                 </div>
@@ -363,11 +304,11 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', ini
                 <div className="flex items-center">
                   <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-orange-100">
                     <span className="text-sm font-medium leading-none text-orange-700">
-                      {user.name ? user.name.charAt(0).toUpperCase() : 'S'}
+                      {session.user?.name ? session.user.name.charAt(0).toUpperCase() : 'S'}
                     </span>
                   </div>
                   <div className="ml-3">
-                    <p className="text-base font-bold text-gray-900">{user.name}</p>
+                    <p className="text-base font-bold text-gray-900">{session.user?.name}</p>
                     <p className="text-sm text-gray-500">Sürücü</p>
                   </div>
                 </div>
@@ -377,7 +318,7 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', ini
         </div>
 
         {/* Ana İçerik */}
-        <div className="flex flex-col w-0 flex-1 overflow-hidden">
+        <div className="flex flex-col w-full flex-1 overflow-hidden">
           {/* Mobil Header */}
           <div className="md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3 flex items-center justify-between shadow-sm z-10 bg-white">
             <div className="flex items-center space-x-2">
@@ -500,8 +441,12 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', ini
             </div>
           </div>
           
-          <main className="flex-1 relative overflow-y-auto focus:outline-none bg-gray-50">
-            {children}
+          <main className="flex-1 relative overflow-y-auto focus:outline-none">
+            <div className="py-6">
+              <div className="max-w-full mx-auto px-4 sm:px-6 md:px-8">
+                {children}
+              </div>
+            </div>
           </main>
         </div>
       </div>

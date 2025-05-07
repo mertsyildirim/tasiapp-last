@@ -25,15 +25,19 @@ export default function Login() {
       if (user.userType === 'driver') {
         router.push('/portal/driver/dashboard');
       } else if (user.userType === 'company') {
-        switch (user.status) {
-          case 'WAITING_APPROVAL':
-            router.push('/portal/waiting-approval');
-            break;
-          case 'WAITING_DOCUMENTS':
-            router.push('/portal/upload-documents');
-            break;
-          default:
-            router.push('/portal/dashboard');
+        if (user.status === 'WAITING_APPROVAL') {
+          router.push('/portal/waiting-approval');
+          return;
+        }
+        if (user.status === 'WAITING_DOCUMENTS') {
+          router.push('/portal/upload-documents');
+          return;
+        }
+        
+        if (user.isFreelance) {
+          router.push('/portal/freelance/dashboard');
+        } else {
+          router.push('/portal/dashboard');
         }
       }
     }

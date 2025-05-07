@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useSession } from 'next-auth/react';
 import DriverLayout from '../../../components/portal/DriverLayout';
 import { FaRoute, FaClock, FaMapMarkedAlt, FaTruck, FaSpinner } from 'react-icons/fa';
 
 export default function Routes() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      // Session yoksa login sayfasına yönlendir
+      router.replace('/portal/login');
+    },
+  });
   const [loading, setLoading] = useState(true);
   const [routes, setRoutes] = useState([]);
   const [filter, setFilter] = useState('all'); // all, active, completed, cancelled
@@ -75,30 +82,23 @@ export default function Routes() {
   ];
 
   useEffect(() => {
-    const checkAuth = () => {
-      try {
-        const userData = localStorage.getItem('user');
-        if (!userData) {
-          router.push('/portal/login');
-          return;
-        }
-        const user = JSON.parse(userData);
-        if (user.type !== 'driver') {
-          router.push('/portal/dashboard');
-          return;
-        }
-        setUser(user);
-      } catch (error) {
-        console.error('Auth check error:', error);
-        router.push('/portal/login');
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Henüz session yüklenmemişse işlem yapma
+    if (status === 'loading') return;
+    
+    console.log("Sürücü Routes - Session durumu:", status, "Session:", session);
+    
+    // Oturum yoksa (zaten onUnauthenticated ile handle ediliyor)
+    if (!session) return;
 
-    checkAuth();
+    // Kullanıcı türü kontrolü
+    if (session.user && session.user.userType !== 'driver') {
+      console.error("Kullanıcı türü sürücü değil, normal dashboard'a yönlendiriliyor");
+      router.replace('/portal/dashboard');
+    }
+    
     setRoutes(sampleRoutes);
-  }, [router]);
+    setLoading(false);
+  }, [status, router, session]);
 
   const filteredRoutes = routes.filter(route => {
     if (filter === 'all') return true;
@@ -161,11 +161,28 @@ export default function Routes() {
     }
   };
 
-  if (loading) {
+  // Yükleme durumu - session yükleniyorsa veya veri yükleniyorsa
+  if (status === 'loading' || loading) {
     return (
       <DriverLayout title="Rotalarım">
         <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+        </div>
+      </DriverLayout>
+    );
+  }
+
+  // Oturumu olmayan kullanıcıları buradan geçirme, useSession'ın onUnauthenticated fonksiyonu bunu zaten hallediyor
+  if (!session) {
+    return null;
+  }
+
+  // Kullanıcı türü sürücü değilse
+  if (session.user?.userType !== 'driver') {
+    return (
+      <DriverLayout>
+        <div className="text-center p-6">
+          <p className="text-red-500">Bu sayfaya erişim yetkiniz bulunmamaktadır. Sürücü girişi yapmanız gerekmektedir.</p>
         </div>
       </DriverLayout>
     );
@@ -173,7 +190,7 @@ export default function Routes() {
 
   return (
     <DriverLayout title="Rotalarım">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <div className="w-full py-6 sm:px-6 lg:px-8">
         {/* Bilgi Kartları */}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <div className="bg-white overflow-hidden shadow rounded-lg">
