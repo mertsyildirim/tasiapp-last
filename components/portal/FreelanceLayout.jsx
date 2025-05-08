@@ -9,7 +9,7 @@ import {
   FaFileAlt, FaUser, FaTools, FaBars, FaTimes, 
   FaSignOutAlt, FaBell, FaChartLine, FaCalendarAlt, FaClock,
   FaInbox, FaMapMarkerAlt, FaCheckCircle, FaExclamationCircle,
-  FaMapMarked, FaLock, FaLockOpen
+  FaMapMarked, FaLock, FaLockOpen, FaToggleOn, FaToggleOff
 } from 'react-icons/fa';
 
 export default function FreelanceLayout({ children, title = 'Freelance Portal' }) {
@@ -28,7 +28,8 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
   const [notifications, setNotifications] = useState([]);
   const [isMobile, setIsMobile] = useState(false);
   const [locationShared, setLocationShared] = useState(false);
-  const [driverStatus, setDriverStatus] = useState('çevrimiçi');
+  const [isOnline, setIsOnline] = useState(false);
+  const [driverStatus, setDriverStatus] = useState('çevrimdışı');
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showingModal, setShowingModal] = useState(false);
   const [modalAnimating, setModalAnimating] = useState(false);
@@ -92,13 +93,127 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
     ]);
   }, [session, status]);
 
-  // Mevcut durum bilgisini alma - örnek olarak
+  // Mevcut durum bilgisini alma ve güncelleme
   useEffect(() => {
-    if (status === 'loading' || !session) return;
+    if (status === 'loading') return;
     
-    // Örnek veri - normalde API'den gelecek
-    setLocationShared(Math.random() > 0.5); // Rastgele durumla simüle ediyoruz
-    setDriverStatus(Math.random() > 0.3 ? 'çevrimiçi' : 'taşıma yapıyor');
+    // Oturum yoksa çevrimiçi durumunu güncellemiyoruz
+    if (!session) {
+      setIsOnline(false);
+      setDriverStatus('çevrimdışı');
+      return;
+    }
+    
+    // Çevrimiçi durum değişikliğini takip et
+    if (isOnline) {
+      setDriverStatus('çevrimiçi');
+    } else {
+      setDriverStatus('çevrimdışı');
+    }
+    
+    // Çevrimiçi durumu localStorage'a kaydet (sayfalar arası geçişlerde korunsun)
+    localStorage.setItem('freelanceIsOnline', isOnline.toString());
+    
+    // API'ye çevrimiçi durumunu bildir
+    const updateOnlineStatus = async () => {
+      try {
+        console.log(`Çevrimiçi durum değişti: ${isOnline ? 'çevrimiçi' : 'çevrimdışı'}`);
+        
+        // API çağrısı yaparak durum değişikliğini veritabanına kaydet
+        const response = await fetch('/api/portal/update-online-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isOnline })
+        });
+        
+        const data = await response.json();
+        
+        // Yanıtı kontrol et
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.warn('Durum güncellemesi için oturum gerekiyor.');
+            return;
+          }
+          
+          throw new Error(data.message || 'Durum güncellenirken bir hata oluştu');
+        }
+        
+        // Başarılı cevap ama oturum yok mesajı
+        if (data.message && data.message.includes('Oturum açılmadığı için')) {
+          console.log('Bilgi:', data.message);
+          return; // İşlem yapılmadı, devam et
+        }
+        
+        console.log('Durum başarıyla güncellendi:', data.message);
+      } catch (error) {
+        console.error('Durum güncellenirken hata:', error);
+        // Hata durumunda LocalStorage'daki durumu koruyalım
+      }
+    };
+    
+    // Çevrimiçi durum değiştiğinde API'yi çağır
+    updateOnlineStatus();
+  }, [isOnline, session, status]);
+
+  // İlk yüklendiğinde localStorage'dan çevrimiçi durumunu al
+  // ve kullanıcının mevcut durumunu API'den kontrol et
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Önce localStorage'dan durumu al (sayfa yenileme için)
+    const savedOnlineStatus = localStorage.getItem('freelanceIsOnline');
+    
+    // Oturum yoksa çevrimiçi durumunu değiştirmiyoruz
+    if (status === 'loading') return;
+    
+    if (!session) {
+      setIsOnline(false);
+      return;
+    }
+    
+    const fetchUserOnlineStatus = async () => {
+      try {
+        // Kullanıcının mevcut çevrimiçi durumunu API'den kontrol et
+        const response = await fetch('/api/portal/user-status');
+        
+        const data = await response.json();
+        
+        // Yanıtı kontrol et
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.warn('Durum bilgisi alımı için oturum gerekiyor.');
+            setIsOnline(false);
+            return;
+          }
+          
+          // API hatası durumunda localStorage değerini kullan
+          setIsOnline(savedOnlineStatus === 'true');
+          return;
+        }
+        
+        // Oturumsuz kullanım için API düzgün yanıt verdi mi?
+        if (data.message && data.message.includes('Oturum açılmadığı için')) {
+          console.log('Bilgi:', data.message);
+          setIsOnline(data.isOnline); // API'nin döndürdüğü durumu kullan (muhtemelen false)
+          return;
+        }
+        
+        if (data.success) {
+          // API'den gelen durumu state'e ayarla
+          setIsOnline(data.isOnline);
+          console.log('Kullanıcı durumu API\'den alındı:', data.isOnline ? 'çevrimiçi' : 'çevrimdışı');
+        } else {
+          // API başarısız olursa localStorage değerini kullan
+          setIsOnline(savedOnlineStatus === 'true');
+        }
+      } catch (error) {
+        console.error('Kullanıcı durumu alınırken hata:', error);
+        // Hata durumunda localStorage değerini kullan
+        setIsOnline(savedOnlineStatus === 'true');
+      }
+    };
+    
+    fetchUserOnlineStatus();
   }, [session, status]);
 
   // Bildirim dropdown dışına tıklandığında kapat
@@ -130,8 +245,38 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
   }, [isProfileOpen]);
 
   const handleSignOut = async () => {
-    await signOut({ redirect: false });
-    router.push('/portal/login');
+    try {
+      console.log('Çıkış yapılıyor...');
+      await signOut({ 
+        redirect: false,
+        callbackUrl: '/portal/login'
+      });
+      console.log('Çıkış başarılı, yönlendiriliyor...');
+      
+      // Oturum verilerini temizle
+      localStorage.removeItem('freelanceIsOnline');
+      
+      // Kısa bir gecikme ekleyerek yönlendirme işlemine izin ver
+      setTimeout(() => {
+        window.location.href = '/portal/login';
+      }, 100);
+    } catch (error) {
+      console.error('Çıkış yaparken hata:', error);
+      // Hata durumunda yine de yönlendir
+      window.location.href = '/portal/login';
+    }
+  };
+
+  // Çevrimiçi durumunu değiştir
+  const toggleOnlineStatus = () => {
+    // Oturum yoksa çevrimiçi durumunu değiştirmiyoruz
+    if (!session) {
+      // Oturum açmadan durum değiştirilemez
+      router.push('/portal/login');
+      return;
+    }
+    
+    setIsOnline(prevStatus => !prevStatus);
   };
 
   // Tarih formatı
@@ -398,9 +543,19 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
                 <FaBars className="h-6 w-6" />
               </button>
               <div className="flex items-center">
-                <span className="inline-flex items-center ml-2 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                <span className={`inline-flex items-center ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                  isOnline ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                }`}>
                   {driverStatus}
                 </span>
+                <button 
+                  onClick={toggleOnlineStatus}
+                  className={`ml-2 p-1 rounded-full transition-colors duration-200 focus:outline-none ${
+                    isOnline ? 'text-green-500 hover:bg-green-100' : 'text-gray-400 hover:bg-gray-100'
+                  }`}
+                >
+                  {isOnline ? <FaToggleOn className="h-5 w-5" /> : <FaToggleOff className="h-5 w-5" />}
+                </button>
                 {locationShared ? (
                   <button 
                     onClick={toggleLocationSharing}
@@ -437,9 +592,20 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
               <div className="flex items-center space-x-4">
                 <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
                 <div className="flex items-center space-x-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    isOnline ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
                     {driverStatus}
                   </span>
+                  <button 
+                    onClick={toggleOnlineStatus}
+                    className={`p-1 rounded-full transition-colors duration-200 focus:outline-none ${
+                      isOnline ? 'text-green-500 hover:bg-green-100' : 'text-gray-400 hover:bg-gray-100'
+                    }`}
+                    title={isOnline ? 'Çevrimdışı ol' : 'Çevrimiçi ol'}
+                  >
+                    {isOnline ? <FaToggleOn className="h-6 w-6" /> : <FaToggleOff className="h-6 w-6" />}
+                  </button>
                 </div>
               </div>
             </div>
@@ -504,10 +670,14 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
                       </Link>
                       <div className="border-t border-gray-200">
                         <button
+                          type="button"
                           onClick={handleSignOut}
-                          className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                          className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 focus:outline-none focus:ring-0"
                         >
-                          Çıkış Yap
+                          <span className="flex items-center">
+                            <FaSignOutAlt className="mr-2 h-4 w-4" />
+                            Çıkış Yap
+                          </span>
                         </button>
                       </div>
                     </div>
