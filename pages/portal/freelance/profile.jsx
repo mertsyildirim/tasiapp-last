@@ -8,11 +8,6 @@ export default function FreelanceProfile() {
   const router = useRouter();
   const { data: session, status } = useSession({
     required: false,
-    onUnauthenticated() {
-      // Bu fonksiyon artık çalışmayacak çünkü required: false
-      // Sayfa içinde yönlendirmeyi kendimiz yöneteceğiz
-      //router.replace('/portal/login');
-    },
   });
   
   const [loading, setLoading] = useState(true);
@@ -47,98 +42,32 @@ export default function FreelanceProfile() {
   const fetchProfileData = async () => {
     try {
       setLoading(true);
-      console.log('Profil verisi yükleniyor...');
       
-      // DEV MODE: Geliştirme ortamında test verisi kullan
-      const isDevelopment = false; // Geliştirme modu kapatıldı, gerçek API kullanılacak
-      if (isDevelopment) {
-        console.log('DEV MODE: Test verileri yükleniyor.');
-        // Test verileri
-        const testProfile = {
-          id: 'dev-test-id',
-          name: 'Test Kullanıcı',
-          email: 'test@tasiapp.com',
-          phone: '+90 555 123 45 67',
-          taxId: '12345678901',
-          company: 'Test Nakliyat Ltd. Şti.',
-          address: 'Test Mah. Test Cad. No:1',
-          district: 'Test İlçe',
-          city: 'Test Şehir',
-          registrationDate: new Date().toISOString(),
-          isFreelance: true,
-          activeStatus: true,
-          verificationStatus: 'verified',
-          rating: 4.5,
-          completedTasks: 42,
-          preferredRoutes: ['İstanbul-Ankara', 'İstanbul-İzmir'],
-          vehicleTypes: ['Tır', 'Kamyon'],
-          avatar: null,
-          notes: 'Test kullanıcı notları',
-          bankInfo: {
-            bankName: 'Test Bank',
-            accountHolder: 'Test Kullanıcı',
-            iban: 'TR12 3456 7890 1234 5678 90',
-            accountNumber: '1234567890'
-          }
-        };
-        
-        // Test verisi kullanıp loading durumunu kapat
-        setTimeout(() => {
-          setProfile(testProfile);
-          setFormData(testProfile);
-          setLoading(false);
-          console.log('Test verileri yüklendi');
-        }, 500); // Kısa bir gecikme ekle
-        return;
-      }
-      
-      if (!session || !session.user) {
-        console.error('Oturum bilgisi yok, profil verisi alınamıyor');
+      if (!session) {
+        console.log("Oturum bilgisi yok, profil verileri alınamıyor");
         setLoading(false);
         return;
       }
       
-      // API'yi çağırırken session bilgilerini doğru şekilde ileteceğiz
-      console.log('API isteği gönderiliyor...');
-      const response = await fetch('/api/portal/profile', {
-        method: 'GET',
-        credentials: 'include', // Cookie'leri gönder (oturum bilgisi için önemli)
-        headers: {
-          'Content-Type': 'application/json',
-          // Session ID veya token varsa ekleyelim
-          ...(session?.user?.id && { 'X-User-ID': session.user.id }),
-          ...(session?.user?.email && { 'X-User-Email': session.user.email }),
-          // NextAuth tarafından oluşturulan token veya JWT varsa
-          ...(session?.accessToken && { 'Authorization': `Bearer ${session.accessToken}` })
-        }
-      });
-      
-      // Response durumunu kontrol edelim
-      console.log('API yanıtı alındı, durum kodu:', response.status);
-      if (response.status === 401) {
-        console.error('Yetkilendirme hatası (401). Oturum geçersiz olabilir.');
-        // Oturum sorununu gösterecek bir hata mesajı
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-      
+      // API'yi çağır
+      const response = await fetch('/api/portal/profile');
       const data = await response.json();
-      console.log('API verisi alındı:', data.success ? 'Başarılı' : 'Başarısız');
       
       if (data.success && data.user) {
+        console.log('Profil verileri başarıyla alındı:', data.user);
+        
         // Veritabanından gelen verileri uygun formata dönüştür
         const profileData = {
           id: data.user.id,
-          name: data.user.name,
-          email: data.user.email,
-          phone: data.user.phone,
-          taxId: data.user.taxNumber,
-          company: data.user.company,
-          address: data.user.address,
+          name: data.user.name || '',
+          email: data.user.email || '',
+          phone: data.user.phone || '',
+          taxId: data.user.taxNumber || '',
+          company: data.user.company || '',
+          address: data.user.address || '',
           district: data.user.district || '',
-          city: data.user.city,
-          registrationDate: new Date().toISOString(), // Şimdiki zamanı kullan
+          city: data.user.city || '',
+          registrationDate: new Date().toISOString(),
           isFreelance: true,
           activeStatus: true,
           verificationStatus: data.user.status || 'verified',
@@ -156,11 +85,10 @@ export default function FreelanceProfile() {
           }
         };
         
-        console.log('Profil verisi ayarlanıyor');
         setProfile(profileData);
         setFormData(profileData);
       } else {
-        console.log('API verisi boş veya başarısız, boş profil oluşturuluyor');
+        console.log('API yanıt verdi ancak kullanıcı verisi bulunamadı');
         // API'den veri gelmezse boş veri kullan
         const emptyProfile = {
           id: '',
@@ -227,7 +155,6 @@ export default function FreelanceProfile() {
       setProfile(emptyProfile);
       setFormData(emptyProfile);
     } finally {
-      console.log('Yükleme durumu kapatılıyor');
       setLoading(false);
     }
   };
@@ -235,23 +162,31 @@ export default function FreelanceProfile() {
   useEffect(() => {
     if (status === 'loading') return;
     
-    if (!session) return;
-
+    console.log("Freelance Profile - Session durumu:", status, "Session:", session);
+    
+    // Profil verilerini yükle
     fetchProfileData();
+    
   }, [status, session]);
 
   useEffect(() => {
-    if (profile && profile.preferredRoutes) {
-      const routeIds = availableRoutes
-        .filter(route => profile.preferredRoutes.includes(`${route.from}-${route.to}`))
-        .map(route => route.id);
+    if (!profile) return;
+    
+    // Seçili rotaları ve araçları belirle
+    if (profile?.preferredRoutes) {
+      const routeIds = profile.preferredRoutes.map(route => {
+        const [from, to] = route.split('-');
+        return availableRoutes.find(r => r.from === from && r.to === to)?.id;
+      }).filter(id => id !== undefined);
+      
       setSelectedRoutesIds(routeIds);
     }
     
-    if (profile && profile.vehicleTypes) {
-      const vehicleIds = availableVehicles
-        .filter(vehicle => profile.vehicleTypes.includes(vehicle.type))
-        .map(vehicle => vehicle.id);
+    if (profile?.vehicleTypes) {
+      const vehicleIds = profile.vehicleTypes.map(type => {
+        return availableVehicles.find(v => v.type === type)?.id;
+      }).filter(id => id !== undefined);
+      
       setSelectedVehiclesIds(vehicleIds);
     }
   }, [profile, availableRoutes, availableVehicles]);
@@ -435,20 +370,27 @@ export default function FreelanceProfile() {
     );
   }
 
-  // Oturum yoksa
-  if (!session) {
+  // Oturum açılmamış
+  if (status === 'unauthenticated') {
     return (
       <FreelanceLayout title="Profilim">
-        <div className="min-h-screen flex flex-col items-center justify-center">
-          <div className="text-center p-8 bg-white rounded-lg shadow-md">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Oturum açılmamış</h2>
-            <p className="text-gray-600 mb-6">Profil bilgilerinizi görüntülemek için lütfen giriş yapın.</p>
-            <button
-              onClick={() => router.push('/portal/login')}
-              className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition"
-            >
-              Giriş Yap
-            </button>
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <div className="bg-white shadow-md rounded-lg p-6 max-w-md w-full">
+            <div className="text-center mb-4">
+              <FaUser className="mx-auto h-12 w-12 text-orange-500" />
+              <h3 className="mt-2 text-lg font-medium text-gray-900">Oturum Açmanız Gerekiyor</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Profil bilgilerinizi görüntülemek için lütfen giriş yapın.
+              </p>
+            </div>
+            <div className="mt-5">
+              <button
+                onClick={() => router.push('/portal/login')}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+              >
+                Giriş Yap
+              </button>
+            </div>
           </div>
         </div>
       </FreelanceLayout>

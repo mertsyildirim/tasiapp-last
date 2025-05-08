@@ -8,10 +8,7 @@ import FreelanceLayout from '../../../components/portal/FreelanceLayout';
 export default function FreelanceTasks() {
   const router = useRouter();
   const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      router.replace('/portal/login');
-    },
+    required: false,
   });
   
   const [loading, setLoading] = useState(true);
@@ -29,148 +26,39 @@ export default function FreelanceTasks() {
     
     if (!session) return;
 
-    // Örnek taşıma verileri - gerçek uygulamada API'den alınacak
-    const demoTasks = [
-      {
-        id: 'TSK2024001',
-        title: 'Ev Eşyası Taşıma',
-        customer: 'Ahmet Yılmaz',
-        customerContact: '+90 532 123 4567',
-        from: 'Kadıköy, İstanbul',
-        fromAddress: 'Kadıköy Mah. Örnek Sok. No:15, D:3, Kadıköy/İstanbul',
-        to: 'Üsküdar, İstanbul',
-        toAddress: 'Üsküdar Mah. Deneme Cad. No:42, B Blok, D:8, Üsküdar/İstanbul',
-        date: '2024-05-20',
-        time: '09:00 - 12:00',
-        description: '3+1 ev eşyası taşıma. Mobilya demontaj/montaj hizmetleri dahil.',
-        status: 'upcoming',
-        distance: '8 km',
-        payment: {
-          amount: 1500,
-          method: 'Online Ödeme',
-          status: 'Ödendi'
-        },
-        items: [
-          { name: 'Koltuk Takımı', count: 1, weight: '~80kg' },
-          { name: 'Yemek Masası Seti', count: 1, weight: '~60kg' },
-          { name: 'Gardrop', count: 2, weight: '~150kg' },
-          { name: 'Beyaz Eşya', count: 4, weight: '~200kg' }
-        ],
-        notes: 'Asansör yok. 3. kat. Mobilyaların bir kısmı demonte edilecek.',
-        createdAt: '2024-05-15T10:30:00'
-      },
-      {
-        id: 'TSK2024002',
-        title: 'Ofis Taşıma',
-        customer: 'MNO Teknoloji Ltd.',
-        customerContact: '+90 212 987 6543',
-        from: 'Levent, İstanbul',
-        fromAddress: 'Levent Mah. Plaza Cad. No:123 Kat:5, Levent/İstanbul',
-        to: 'Maslak, İstanbul',
-        toAddress: 'Maslak Mah. İş Merkezi Sk. No:42 Kat:8, Maslak/İstanbul',
-        date: '2024-05-18',
-        time: '14:00 - 18:00',
-        description: '10 kişilik ofis ekipmanları taşıma. Elektronik eşyalar dikkatli taşınacak.',
-        status: 'in_progress',
-        distance: '5 km',
-        payment: {
-          amount: 3200,
-          method: 'Kurumsal Fatura',
-          status: 'Beklemede'
-        },
-        items: [
-          { name: 'Çalışma Masaları', count: 10, weight: '~250kg' },
-          { name: 'Ofis Koltukları', count: 10, weight: '~150kg' },
-          { name: 'PC ve Ekipmanlar', count: 15, weight: '~150kg' },
-          { name: 'Dolaplar', count: 5, weight: '~300kg' }
-        ],
-        notes: 'Her iki binada da yük asansörü mevcut. Tüm eşyalar kutulara konulmuş durumda.',
-        createdAt: '2024-05-10T14:45:00'
-      },
-      {
-        id: 'TSK2024003',
-        title: 'Paket Teslimatı',
-        customer: 'Zeynep Kaya',
-        customerContact: '+90 535 765 4321',
-        from: 'Beyoğlu, İstanbul',
-        fromAddress: 'Beyoğlu Mah. Taksim Cad. No:5, Beyoğlu/İstanbul',
-        to: 'Şişli, İstanbul',
-        toAddress: 'Şişli Mah. Apartman Sk. No:15, D:7, Şişli/İstanbul',
-        date: '2024-05-16',
-        time: '10:00 - 11:00',
-        description: 'Hassas içerikli kargonun özel teslimatlı gönderimi.',
-        status: 'completed',
-        distance: '4 km',
-        payment: {
-          amount: 750,
-          method: 'Nakit',
-          status: 'Ödendi'
-        },
-        items: [
-          { name: 'Elektronik Eşya', count: 1, weight: '~15kg' }
-        ],
-        notes: 'Elektronik eşya özenli taşınmalıdır.',
-        createdAt: '2024-05-15T10:00:00'
-      },
-      {
-        id: 'TSK2024004',
-        title: 'Mobilya Taşıma',
-        customer: 'Ali Demir',
-        customerContact: '+90 536 987 1234',
-        from: 'Bakırköy, İstanbul',
-        fromAddress: 'Bakırköy Mah. Deneme Sok. No:34, D:12 Bakırköy/İstanbul',
-        to: 'Beylikdüzü, İstanbul',
-        toAddress: 'Beylikdüzü Mah. Örnek Cad. No:78, C Blok, D:5 Beylikdüzü/İstanbul',
-        date: '2024-05-25',
-        time: '10:00 - 14:00',
-        description: 'Yeni mobilyaların taşınması ve kurulumu.',
-        status: 'upcoming',
-        distance: '25 km',
-        payment: {
-          amount: 2800,
-          method: 'Kredi Kartı',
-          status: 'Ön Ödeme Alındı'
-        },
-        items: [
-          { name: 'Yatak Odası Takımı', count: 1, weight: '~200kg' },
-          { name: 'Oturma Odası Takımı', count: 1, weight: '~180kg' },
-          { name: 'Çeşitli Mobilyalar', count: 5, weight: '~120kg' }
-        ],
-        notes: 'Yeni mobilyalar mağazadan alınacak ve eve teslim edilecek. Montaj hizmeti dahildir.',
-        createdAt: '2024-05-12T09:15:00'
-      },
-      {
-        id: 'TSK2024005',
-        title: 'Fabrika Ekipmanı Taşıma',
-        customer: 'ABC Sanayi A.Ş.',
-        customerContact: '+90 212 456 7890',
-        from: 'Tuzla, İstanbul',
-        fromAddress: 'Tuzla OSB, E5 Fabrika Cad. No:123, Tuzla/İstanbul',
-        to: 'Gebze, Kocaeli',
-        toAddress: 'Gebze OSB, Teknoloji Mah. D-100 Cad. No:45, Gebze/Kocaeli',
-        date: '2024-05-30',
-        time: '08:00 - 17:00',
-        description: 'Ağır endüstriyel ekipman taşıma.',
-        status: 'cancelled',
-        distance: '35 km',
-        payment: {
-          amount: 8500,
-          method: 'Banka Havalesi',
-          status: 'İptal Edildi'
-        },
-        items: [
-          { name: 'CNC Makinası', count: 1, weight: '~1200kg' },
-          { name: 'Endüstriyel Robotlar', count: 2, weight: '~800kg' },
-          { name: 'Kontrol Üniteleri', count: 5, weight: '~250kg' }
-        ],
-        notes: 'Taşıma iptal edildi. Müşteri farklı bir firmayı tercih etti.',
-        createdAt: '2024-05-08T11:20:00'
+    // Taşıma verilerini API'den al
+    const fetchShipments = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/portal/freelance-shipments');
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log('Taşımalar başarıyla alındı:', data);
+          
+          // API'den gelen verileri tasks state'ine ata
+          const allTasks = data.all || [];
+          setTasks(allTasks);
+          
+          // Filtrelenmiş görev listesini de güncelle
+          setFilteredTasks(allTasks);
+        } else {
+          console.error('Taşıma verisi alınamadı:', data.message);
+          // Hata durumunda boş veri göster
+          setTasks([]);
+          setFilteredTasks([]);
+        }
+      } catch (error) {
+        console.error('Taşıma verisi alınırken hata:', error);
+        // Hata durumunda boş veri göster
+        setTasks([]);
+        setFilteredTasks([]);
+      } finally {
+        setLoading(false);
       }
-    ];
-    
-    setTasks(demoTasks);
-    setFilteredTasks(demoTasks);
-    setLoading(false);
+    };
+
+    fetchShipments();
   }, [status, router, session]);
 
   // Filtreleme
@@ -205,6 +93,33 @@ export default function FreelanceTasks() {
       <FreelanceLayout title="Taşımalarım">
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+        </div>
+      </FreelanceLayout>
+    );
+  }
+  
+  // Oturum açılmamış
+  if (status === 'unauthenticated') {
+    return (
+      <FreelanceLayout title="Taşımalarım">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <div className="bg-white shadow-md rounded-lg p-6 max-w-md w-full">
+            <div className="text-center mb-4">
+              <FaTruck className="mx-auto h-12 w-12 text-orange-500" />
+              <h3 className="mt-2 text-lg font-medium text-gray-900">Oturum Açmanız Gerekiyor</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Taşımalarınızı görüntülemek için lütfen giriş yapın.
+              </p>
+            </div>
+            <div className="mt-5">
+              <button
+                onClick={() => router.push('/portal/login')}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+              >
+                Giriş Yap
+              </button>
+            </div>
+          </div>
         </div>
       </FreelanceLayout>
     );
@@ -268,6 +183,146 @@ export default function FreelanceTasks() {
       setExpandedTaskId(null);
     } else {
       setExpandedTaskId(id);
+    }
+  };
+
+  const handleStartShipment = async (id) => {
+    try {
+      const response = await fetch('/api/portal/update-shipment-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shipmentId: id,
+          status: 'in_progress'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // UI'ı güncelle
+        const updatedTasks = tasks.map(task => {
+          if (task.id === id) {
+            return { ...task, status: 'in_progress' };
+          }
+          return task;
+        });
+        
+        setTasks(updatedTasks);
+        // Filtrelenmiş liste de güncellenmeli
+        const updatedFilteredTasks = filteredTasks.map(task => {
+          if (task.id === id) {
+            return { ...task, status: 'in_progress' };
+          }
+          return task;
+        });
+        
+        setFilteredTasks(updatedFilteredTasks);
+        
+        // Modal'ı kapat
+        setExpandedTaskId(null);
+      } else {
+        alert('Taşıma başlatılırken bir hata oluştu: ' + data.message);
+      }
+    } catch (error) {
+      console.error('Taşıma başlatma hatası:', error);
+      alert('Taşıma başlatılırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    }
+  };
+
+  const handleCompleteShipment = async (id) => {
+    try {
+      const response = await fetch('/api/portal/update-shipment-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shipmentId: id,
+          status: 'completed'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // UI'ı güncelle
+        const updatedTasks = tasks.map(task => {
+          if (task.id === id) {
+            return { ...task, status: 'completed' };
+          }
+          return task;
+        });
+        
+        setTasks(updatedTasks);
+        
+        // Filtrelenmiş liste de güncellenmeli
+        const updatedFilteredTasks = filteredTasks.map(task => {
+          if (task.id === id) {
+            return { ...task, status: 'completed' };
+          }
+          return task;
+        });
+        
+        setFilteredTasks(updatedFilteredTasks);
+        
+        // Modal'ı kapat
+        setExpandedTaskId(null);
+      } else {
+        alert('Taşıma tamamlanırken bir hata oluştu: ' + data.message);
+      }
+    } catch (error) {
+      console.error('Taşıma tamamlama hatası:', error);
+      alert('Taşıma tamamlanırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
+    }
+  };
+
+  const handleCancelShipment = async (id) => {
+    try {
+      const response = await fetch('/api/portal/update-shipment-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shipmentId: id,
+          status: 'cancelled'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // UI'ı güncelle
+        const updatedTasks = tasks.map(task => {
+          if (task.id === id) {
+            return { ...task, status: 'cancelled' };
+          }
+          return task;
+        });
+        
+        setTasks(updatedTasks);
+        
+        // Filtrelenmiş liste de güncellenmeli
+        const updatedFilteredTasks = filteredTasks.map(task => {
+          if (task.id === id) {
+            return { ...task, status: 'cancelled' };
+          }
+          return task;
+        });
+        
+        setFilteredTasks(updatedFilteredTasks);
+        
+        // Modal'ı kapat
+        setExpandedTaskId(null);
+      } else {
+        alert('Taşıma iptal edilirken bir hata oluştu: ' + data.message);
+      }
+    } catch (error) {
+      console.error('Taşıma iptal hatası:', error);
+      alert('Taşıma iptal edilirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
     }
   };
 
@@ -456,17 +511,23 @@ export default function FreelanceTasks() {
                     <div className="mt-4 flex justify-end space-x-3">
                       {task.status === 'upcoming' && (
                         <>
-                          <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                          <button 
+                            onClick={() => handleStartShipment(task.id)}
+                            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                             Başla
                           </button>
-                          <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
+                          <button 
+                            onClick={() => handleCancelShipment(task.id)}
+                            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
                             İptal Et
                           </button>
                         </>
                       )}
                       
                       {task.status === 'in_progress' && (
-                        <button className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                        <button 
+                          onClick={() => handleCompleteShipment(task.id)}
+                          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                           Tamamlandı Olarak İşaretle
                         </button>
                       )}

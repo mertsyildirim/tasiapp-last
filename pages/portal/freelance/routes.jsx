@@ -8,10 +8,7 @@ import FreelanceLayout from '../../../components/portal/FreelanceLayout';
 export default function FreelanceRoutes() {
   const router = useRouter();
   const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      router.replace('/portal/login');
-    },
+    required: false,
   });
   
   const [loading, setLoading] = useState(true);
@@ -31,107 +28,44 @@ export default function FreelanceRoutes() {
     
     console.log("Freelance Routes - Session durumu:", status, "Session:", session);
     
-    if (!session) return;
+    if (!session) {
+      // Oturum yoksa boş verilerle devam et
+      setRoutes([]);
+      setFilteredRoutes([]);
+      setLoading(false);
+      return;
+    }
 
-    // Örnek rota verileri - gerçek uygulamada API'den alınacak
-    const demoRoutes = [
-      {
-        id: 'RTK2024001',
-        title: 'İstanbul - Ankara',
-        description: 'İstanbul-Ankara arasında düzenli taşıma hattı',
-        startLocation: 'İstanbul',
-        startCoordinates: { lat: 41.0082, lng: 28.9784 },
-        endLocation: 'Ankara',
-        endCoordinates: { lat: 39.9334, lng: 32.8597 },
-        distance: '450 km',
-        duration: '5 saat',
-        frequency: 'Haftalık',
-        days: ['Pazartesi', 'Perşembe'],
-        nextDate: '2024-05-20',
-        vehicleType: 'Tır',
-        capacity: '24 ton',
-        status: 'active',
-        price: '4500 ₺',
-        stops: [
-          { name: 'Bolu', coordinates: { lat: 40.7392, lng: 31.6113 }, time: '15 dakika' },
-          { name: 'Sakarya', coordinates: { lat: 40.7731, lng: 30.3794 }, time: '10 dakika' }
-        ],
-        notes: 'Araç yükü tam kapasitede kabul edilir. Soğuk zincir uyumlu.',
-        createdAt: '2024-04-15T10:30:00'
-      },
-      {
-        id: 'RTK2024002',
-        title: 'İstanbul - İzmir',
-        description: 'İstanbul-İzmir arası ekspres kargo hattı',
-        startLocation: 'İstanbul',
-        startCoordinates: { lat: 41.0082, lng: 28.9784 },
-        endLocation: 'İzmir',
-        endCoordinates: { lat: 38.4237, lng: 27.1428 },
-        distance: '480 km',
-        duration: '6 saat',
-        frequency: 'Haftalık',
-        days: ['Salı', 'Cuma'],
-        nextDate: '2024-05-21',
-        vehicleType: 'Kamyon',
-        capacity: '16 ton',
-        status: 'active',
-        price: '4000 ₺',
-        stops: [
-          { name: 'Bursa', coordinates: { lat: 40.1885, lng: 29.0610 }, time: '20 dakika' },
-          { name: 'Balıkesir', coordinates: { lat: 39.6484, lng: 27.8826 }, time: '15 dakika' }
-        ],
-        notes: 'Hızlı teslimat için optimum yük planlaması yapılır.',
-        createdAt: '2024-04-17T14:30:00'
-      },
-      {
-        id: 'RTK2024003',
-        title: 'İstanbul - Bursa',
-        description: 'İstanbul-Bursa arası günlük kargo teslimatı',
-        startLocation: 'İstanbul',
-        startCoordinates: { lat: 41.0082, lng: 28.9784 },
-        endLocation: 'Bursa',
-        endCoordinates: { lat: 40.1885, lng: 29.0610 },
-        distance: '155 km',
-        duration: '2 saat',
-        frequency: 'Günlük',
-        days: ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'],
-        nextDate: '2024-05-20',
-        vehicleType: 'Kamyonet',
-        capacity: '3.5 ton',
-        status: 'inactive',
-        price: '1500 ₺',
-        stops: [],
-        notes: 'Küçük paketler için optimum. Bursa içi dağıtım hizmeti dahildir.',
-        createdAt: '2024-05-01T08:45:00'
-      },
-      {
-        id: 'RTK2024004',
-        title: 'Ankara - Antalya',
-        description: 'Ankara-Antalya arası taşıma hattı',
-        startLocation: 'Ankara',
-        startCoordinates: { lat: 39.9334, lng: 32.8597 },
-        endLocation: 'Antalya',
-        endCoordinates: { lat: 36.8841, lng: 30.7056 },
-        distance: '485 km',
-        duration: '6 saat',
-        frequency: 'İki haftada bir',
-        days: ['Çarşamba'],
-        nextDate: '2024-05-29',
-        vehicleType: 'Kamyon',
-        capacity: '18 ton',
-        status: 'planned',
-        price: '5500 ₺',
-        stops: [
-          { name: 'Konya', coordinates: { lat: 37.8715, lng: 32.4846 }, time: '25 dakika' }
-        ],
-        notes: 'Antalya bölgesi gıda ve soğuk zincir taşıması için özel donanım.',
-        createdAt: '2024-05-10T12:15:00'
+    // Rota verilerini API'den al
+    const fetchRoutes = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/portal/freelance-routes');
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log('Rotalar başarıyla alındı:', data);
+          
+          // API'den gelen verileri ata
+          setRoutes(data.routes || []);
+          setFilteredRoutes(data.routes || []);
+        } else {
+          console.error('Rota verisi alınamadı:', data.message);
+          // Hata durumunda boş veri göster
+          setRoutes([]);
+          setFilteredRoutes([]);
+        }
+      } catch (error) {
+        console.error('Rota verisi alınırken hata:', error);
+        // Hata durumunda boş veri göster
+        setRoutes([]);
+        setFilteredRoutes([]);
+      } finally {
+        setLoading(false);
       }
-    ];
-    
-    setRoutes(demoRoutes);
-    setFilteredRoutes(demoRoutes);
-    setLoading(false);
+    };
+
+    fetchRoutes();
   }, [status, router, session]);
 
   // Filtreleme
@@ -221,13 +155,6 @@ export default function FreelanceRoutes() {
         <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
           <div className="px-4 py-5 sm:px-6 flex justify-between items-center flex-wrap">
             <h2 className="text-xl font-semibold text-gray-900">Rotalarım</h2>
-            
-            <Link href="/portal/freelance/routes/create">
-              <span className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
-                <FaPlus className="mr-2 -ml-1 h-4 w-4" />
-                Yeni Rota Ekle
-              </span>
-            </Link>
           </div>
           
           <div className="border-t border-b border-gray-200 px-4 py-4 sm:px-6 bg-gray-50">
@@ -252,16 +179,6 @@ export default function FreelanceRoutes() {
                   }`}
                 >
                   Aktif
-                </button>
-                <button
-                  onClick={() => setFilter('inactive')}
-                  className={`mr-2 mb-2 px-3 py-1.5 text-sm font-medium rounded-md ${
-                    filter === 'inactive'
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  Pasif
                 </button>
                 <button
                   onClick={() => setFilter('planned')}
@@ -301,14 +218,6 @@ export default function FreelanceRoutes() {
             <p className="mt-1 text-sm text-gray-500">
               Seçtiğiniz filtre kriterlerine uygun rota bulunmamaktadır.
             </p>
-            <div className="mt-6">
-              <Link href="/portal/freelance/routes/create">
-                <span className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
-                  <FaPlus className="mr-2 -ml-1 h-4 w-4" />
-                  Yeni Rota Ekle
-                </span>
-              </Link>
-            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

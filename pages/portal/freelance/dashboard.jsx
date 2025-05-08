@@ -8,10 +8,7 @@ import FreelanceLayout from '../../../components/portal/FreelanceLayout';
 export default function FreelanceDashboard() {
   const router = useRouter();
   const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      router.replace('/portal/login');
-    },
+    required: false,
   });
   
   const [loading, setLoading] = useState(true);
@@ -52,126 +49,138 @@ export default function FreelanceDashboard() {
     
     console.log("Freelance Dashboard - Session durumu:", status, "Session:", session);
     
-    if (!session) return;
+    if (!session) {
+      setLoading(false);
+      return;
+    }
 
-    // Örnek veri - gerçek uygulamada API'den alınacak
-    setFreelanceData({
-      name: session.user?.name || 'Freelance Kullanıcı',
-      earnings: {
-        today: 250,
-        week: 1750,
-        month: 5600,
-        total: 24500,
-        // Son 6 ayın kazanç verileri
-        monthly: [
-          { month: 'Ocak', amount: 3500 },
-          { month: 'Şubat', amount: 4200 },
-          { month: 'Mart', amount: 3800 },
-          { month: 'Nisan', amount: 4500 },
-          { month: 'Mayıs', amount: 5600 },
-          { month: 'Haziran', amount: 0 }
-        ]
-      },
-      tasks: {
-        active: 3,
-        completed: 45,
-        upcoming: 2,
-        total: 50
-      },
-      stats: {
-        completionRate: 96,
-        rating: 4.8,
-        customerSatisfaction: 94,
-        responseTime: 22 // dakika
-      },
-      recentTasks: [
-        {
-          id: 'T1001',
-          title: 'Ev Eşyası Taşıma',
-          customer: 'Ahmet Yılmaz',
-          date: '2024-05-15',
-          status: 'completed',
-          amount: 1200
-        },
-        {
-          id: 'T1002',
-          title: 'Ofis Taşıma',
-          customer: 'MNO Teknoloji Ltd.',
-          date: '2024-05-18',
-          status: 'active',
-          amount: 2500
-        },
-        {
-          id: 'T1003',
-          title: 'Paket Teslimatı',
-          customer: 'Zeynep Kaya',
-          date: '2024-05-20',
-          status: 'upcoming',
-          amount: 350
+    // Dashboard verilerini API'den al
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/portal/dashboard');
+        
+        // Response status kontrolü
+        if (!response.ok) {
+          console.error('API yanıt hatası:', response.status, response.statusText);
+          throw new Error(`API yanıt hatası: ${response.status}`);
         }
-      ],
-      // Hızlı erişim menüsü
-      quickActions: [
-        { id: 1, title: 'Yeni Taşıma Talebi Gör', icon: FaInbox, link: '/portal/freelance/requests', color: 'bg-blue-500', count: 3 },
-        { id: 2, title: 'Taşımalarımı Yönet', icon: FaTruck, link: '/portal/freelance/tasks', color: 'bg-green-500' },
-        { id: 3, title: 'Rota Planla', icon: FaRoute, link: '/portal/freelance/routes', color: 'bg-indigo-500' },
-        { id: 4, title: 'Faturalarımı Gör', icon: FaMoneyBillWave, link: '/portal/freelance/earnings', color: 'bg-yellow-500' }
-      ],
-      // Bekleyen ödemeler
-      pendingPayments: [
-        { id: 'P1001', title: 'İstanbul - Bursa Taşıması', dueDate: '2024-06-02', amount: 1500, status: 'pending' },
-        { id: 'P1002', title: 'Ankara - Konya Taşıması', dueDate: '2024-06-05', amount: 2800, status: 'pending' }
-      ],
-      // Yenilenecek belgeler
-      documentsToRenew: [
-        { id: 'D1001', title: 'Sigorta Poliçesi', expiryDate: '2024-07-15', status: 'warning', type: 'insurance' },
-        { id: 'D1002', title: 'Taşımacılık Yetki Belgesi', expiryDate: '2024-08-20', status: 'info', type: 'license' }
-      ],
-      // Taşıma talepleri
-      transportRequests: [
-        { 
-          id: 'R1001', 
-          title: 'Ev Eşyası Taşıma', 
-          customer: 'Mehmet Öztürk', 
-          from: 'İstanbul, Kadıköy', 
-          to: 'İstanbul, Beşiktaş', 
-          date: '2024-06-05', 
-          estimatedPrice: 1800, 
-          status: 'pending',
-          cargoDetails: '3+1 ev, yaklaşık 25 koli, büyük mobilyalar dahil',
-          customerRating: 4.7,
-          distance: '12 km'
-        },
-        { 
-          id: 'R1002', 
-          title: 'Ofis Mobilyası Taşıma', 
-          customer: 'ABC Teknoloji Ltd.', 
-          from: 'İstanbul, Levent', 
-          to: 'İstanbul, Maslak', 
-          date: '2024-06-10', 
-          estimatedPrice: 3500, 
-          status: 'pending',
-          cargoDetails: '10 ofis masası, 15 sandalye, 5 dolap, bilgisayar ekipmanları',
-          customerRating: 4.2,
-          distance: '5 km'
-        },
-        { 
-          id: 'R1003', 
-          title: 'Antika Eşya Taşıma', 
-          customer: 'Ayşe Yılmaz', 
-          from: 'Ankara, Çankaya', 
-          to: 'İstanbul, Beyoğlu', 
-          date: '2024-06-12', 
-          estimatedPrice: 4200, 
-          status: 'pending',
-          cargoDetails: 'Hassas antika mobilyalar, özel paketleme gerekli',
-          customerRating: 5.0,
-          distance: '450 km'
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log('Dashboard verileri başarıyla alındı:', data);
+          
+          // API'den gelen verileri uygun formatta düzenle
+          setFreelanceData({
+            name: session.user?.name || data.name || 'Freelance Kullanıcı',
+            earnings: {
+              today: data.todayEarnings || 0,
+              week: data.weekEarnings || 0,
+              month: data.monthEarnings || 0,
+              total: data.totalEarnings || 0,
+              monthly: data.monthlyEarnings || []
+            },
+            tasks: {
+              active: data.activeTasksCount || 0,
+              completed: data.completedTasksCount || 0,
+              upcoming: data.upcomingTasksCount || 0,
+              total: data.totalTasksCount || 0
+            },
+            stats: {
+              completionRate: data.completionRate || 0,
+              rating: data.rating || 0,
+              customerSatisfaction: data.customerSatisfaction || 0,
+              responseTime: data.responseTime || 0
+            },
+            recentTasks: data.recentTasks || [],
+            quickActions: [
+              { id: 1, title: 'Yeni Taşıma Talebi Gör', icon: FaInbox, link: '/portal/freelance/requests', color: 'bg-blue-500', count: data.newRequestsCount || 0 },
+              { id: 2, title: 'Taşımalarımı Yönet', icon: FaTruck, link: '/portal/freelance/tasks', color: 'bg-green-500' },
+              { id: 3, title: 'Rota Planla', icon: FaRoute, link: '/portal/freelance/routes', color: 'bg-indigo-500' },
+              { id: 4, title: 'Faturalarımı Gör', icon: FaMoneyBillWave, link: '/portal/freelance/earnings', color: 'bg-yellow-500' }
+            ],
+            pendingPayments: data.pendingPayments || [],
+            documentsToRenew: data.documentsToRenew || [],
+            transportRequests: data.newRequests || []
+          });
+        } else {
+          console.error('Dashboard verileri alınamadı:', data.message);
+          // Hata durumunda boş veri göster
+          setFreelanceData({
+            name: session.user?.name || 'Freelance Kullanıcı',
+            earnings: {
+              today: 0,
+              week: 0,
+              month: 0,
+              total: 0,
+              monthly: []
+            },
+            tasks: {
+              active: 0,
+              completed: 0,
+              upcoming: 0,
+              total: 0
+            },
+            stats: {
+              completionRate: 0,
+              rating: 0,
+              customerSatisfaction: 0,
+              responseTime: 0
+            },
+            recentTasks: [],
+            quickActions: [
+              { id: 1, title: 'Yeni Taşıma Talebi Gör', icon: FaInbox, link: '/portal/freelance/requests', color: 'bg-blue-500', count: 0 },
+              { id: 2, title: 'Taşımalarımı Yönet', icon: FaTruck, link: '/portal/freelance/tasks', color: 'bg-green-500' },
+              { id: 3, title: 'Rota Planla', icon: FaRoute, link: '/portal/freelance/routes', color: 'bg-indigo-500' },
+              { id: 4, title: 'Faturalarımı Gör', icon: FaMoneyBillWave, link: '/portal/freelance/earnings', color: 'bg-yellow-500' }
+            ],
+            pendingPayments: [],
+            documentsToRenew: [],
+            transportRequests: []
+          });
         }
-      ]
-    });
+      } catch (error) {
+        console.error('Dashboard verileri alınırken hata:', error);
+        // Hata durumunda boş veri göster
+        setFreelanceData({
+          name: session.user?.name || 'Freelance Kullanıcı',
+          earnings: {
+            today: 0,
+            week: 0,
+            month: 0,
+            total: 0,
+            monthly: []
+          },
+          tasks: {
+            active: 0,
+            completed: 0,
+            upcoming: 0,
+            total: 0
+          },
+          stats: {
+            completionRate: 0,
+            rating: 0,
+            customerSatisfaction: 0,
+            responseTime: 0
+          },
+          recentTasks: [],
+          quickActions: [
+            { id: 1, title: 'Yeni Taşıma Talebi Gör', icon: FaInbox, link: '/portal/freelance/requests', color: 'bg-blue-500', count: 0 },
+            { id: 2, title: 'Taşımalarımı Yönet', icon: FaTruck, link: '/portal/freelance/tasks', color: 'bg-green-500' },
+            { id: 3, title: 'Rota Planla', icon: FaRoute, link: '/portal/freelance/routes', color: 'bg-indigo-500' },
+            { id: 4, title: 'Faturalarımı Gör', icon: FaMoneyBillWave, link: '/portal/freelance/earnings', color: 'bg-yellow-500' }
+          ],
+          pendingPayments: [],
+          documentsToRenew: [],
+          transportRequests: []
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    setLoading(false);
+    fetchDashboardData();
     
     // Saat güncellemesi
     const timer = setInterval(() => {
@@ -187,6 +196,33 @@ export default function FreelanceDashboard() {
       <FreelanceLayout title="Dashboard">
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+        </div>
+      </FreelanceLayout>
+    );
+  }
+
+  // Oturum açılmamış
+  if (status === 'unauthenticated') {
+    return (
+      <FreelanceLayout title="Dashboard">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <div className="bg-white shadow-md rounded-lg p-6 max-w-md w-full">
+            <div className="text-center mb-4">
+              <FaChartLine className="mx-auto h-12 w-12 text-orange-500" />
+              <h3 className="mt-2 text-lg font-medium text-gray-900">Oturum Açmanız Gerekiyor</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Dashboard bilgilerinizi görüntülemek için lütfen giriş yapın.
+              </p>
+            </div>
+            <div className="mt-5">
+              <button
+                onClick={() => router.push('/portal/login')}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+              >
+                Giriş Yap
+              </button>
+            </div>
+          </div>
         </div>
       </FreelanceLayout>
     );

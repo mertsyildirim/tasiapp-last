@@ -7,10 +7,7 @@ import FreelanceLayout from '../../../components/portal/FreelanceLayout';
 export default function FreelanceEarnings() {
   const router = useRouter();
   const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      router.replace('/portal/login');
-    },
+    required: false,
   });
   
   const [loading, setLoading] = useState(true);
@@ -26,120 +23,71 @@ export default function FreelanceEarnings() {
   useEffect(() => {
     if (status === 'loading') return;
     
-    if (!session) return;
+    if (!session) {
+      // Oturum yoksa boş verilerle devam et
+      setEarnings([]);
+      setFilteredEarnings([]);
+      setTotalEarnings(0);
+      setPendingEarnings(0);
+      setCompletedEarnings(0);
+      setLoading(false);
+      return;
+    }
 
-    // Örnek kazanç verileri - gerçek uygulamada API'den alınacak
-    const demoEarnings = [
-      {
-        id: 'TRN2024001',
-        title: 'İstanbul - Ankara Taşıması',
-        taskId: 'TSK2024001',
-        amount: 4500,
-        currency: '₺',
-        status: 'completed',
-        paymentMethod: 'Banka Transferi',
-        paymentDate: '2024-05-10T14:30:00',
-        invoiceNumber: 'FTR2024001',
-        notes: 'KDV dahil ödeme',
-        createdAt: '2024-05-05T10:30:00'
-      },
-      {
-        id: 'TRN2024002',
-        title: 'İstanbul - İzmir Taşıması',
-        taskId: 'TSK2024002',
-        amount: 4000,
-        currency: '₺',
-        status: 'completed',
-        paymentMethod: 'Banka Transferi',
-        paymentDate: '2024-05-07T11:15:00',
-        invoiceNumber: 'FTR2024002',
-        notes: 'KDV dahil ödeme',
-        createdAt: '2024-05-02T09:45:00'
-      },
-      {
-        id: 'TRN2024003',
-        title: 'İstanbul - Bursa Taşıması',
-        taskId: 'TSK2024003',
-        amount: 1500,
-        currency: '₺',
-        status: 'pending',
-        paymentMethod: 'Banka Transferi',
-        paymentDate: null,
-        invoiceNumber: 'FTR2024003',
-        notes: 'Ödeme onay bekliyor',
-        createdAt: '2024-05-18T15:20:00'
-      },
-      {
-        id: 'TRN2024004',
-        title: 'Ankara - Konya Taşıması',
-        taskId: 'TSK2024004',
-        amount: 2800,
-        currency: '₺',
-        status: 'pending',
-        paymentMethod: 'Banka Transferi',
-        paymentDate: null,
-        invoiceNumber: 'FTR2024004',
-        notes: 'Ödeme onay bekliyor',
-        createdAt: '2024-05-17T16:50:00'
+    // Kazanç verilerini API'den al
+    const fetchEarnings = async () => {
+      setLoading(true);
+      try {
+        // Aktif dönem parametresini URL'e ekle
+        const url = period !== 'all' 
+          ? `/api/portal/freelance-earnings?period=${period}`
+          : '/api/portal/freelance-earnings';
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log('Kazançlar başarıyla alındı:', data);
+          
+          // API'den gelen verileri ata
+          setEarnings(data.earnings || []);
+          setFilteredEarnings(data.earnings || []);
+          
+          // Özet verilerini güncelle
+          const summary = data.summary || {};
+          setTotalEarnings(summary.totalEarnings || 0);
+          setPendingEarnings(summary.pendingEarnings || 0);
+          setCompletedEarnings(summary.completedEarnings || 0);
+        } else {
+          console.error('Kazanç verisi alınamadı:', data.message);
+          // Hata durumunda boş veri göster
+          setEarnings([]);
+          setFilteredEarnings([]);
+          setTotalEarnings(0);
+          setPendingEarnings(0);
+          setCompletedEarnings(0);
+        }
+      } catch (error) {
+        console.error('Kazanç verisi alınırken hata:', error);
+        // Hata durumunda boş veri göster
+        setEarnings([]);
+        setFilteredEarnings([]);
+        setTotalEarnings(0);
+        setPendingEarnings(0);
+        setCompletedEarnings(0);
+      } finally {
+        setLoading(false);
       }
-    ];
-    
-    setEarnings(demoEarnings);
-    setFilteredEarnings(demoEarnings);
-    
-    // Toplam kazançları hesapla
-    const total = demoEarnings.reduce((sum, item) => sum + item.amount, 0);
-    setTotalEarnings(total);
-    
-    // Bekleyen ödemeleri hesapla
-    const pending = demoEarnings
-      .filter(item => item.status === 'pending')
-      .reduce((sum, item) => sum + item.amount, 0);
-    setPendingEarnings(pending);
-    
-    // Tamamlanan ödemeleri hesapla
-    const completed = demoEarnings
-      .filter(item => item.status === 'completed')
-      .reduce((sum, item) => sum + item.amount, 0);
-    setCompletedEarnings(completed);
-    
-    setLoading(false);
-  }, [status, router, session]);
+    };
+
+    fetchEarnings();
+  }, [status, router, session, period]);
 
   // Filtreleme
   useEffect(() => {
     if (!earnings.length) return;
     
     let result = [...earnings];
-    
-    // Dönem filtresi
-    if (period !== 'all') {
-      const now = new Date();
-      let startDate;
-      
-      switch(period) {
-        case 'thisMonth':
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          break;
-        case 'lastMonth':
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          const endDate = new Date(now.getFullYear(), now.getMonth(), 0);
-          result = result.filter(item => {
-            const date = new Date(item.createdAt);
-            return date >= startDate && date <= endDate;
-          });
-          break;
-        case 'thisYear':
-          startDate = new Date(now.getFullYear(), 0, 1);
-          break;
-        default:
-          startDate = null;
-      }
-      
-      if (startDate && period !== 'lastMonth') {
-        result = result.filter(item => new Date(item.createdAt) >= startDate);
-      }
-    }
     
     // Arama filtresi
     if (searchTerm) {
@@ -152,7 +100,7 @@ export default function FreelanceEarnings() {
     }
     
     setFilteredEarnings(result);
-  }, [earnings, period, searchTerm]);
+  }, [earnings, searchTerm]);
 
   // Yükleme durumu
   if (status === 'loading' || loading) {
@@ -160,6 +108,33 @@ export default function FreelanceEarnings() {
       <FreelanceLayout title="Kazançlarım">
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+        </div>
+      </FreelanceLayout>
+    );
+  }
+  
+  // Oturum açılmamış
+  if (status === 'unauthenticated') {
+    return (
+      <FreelanceLayout title="Kazançlarım">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <div className="bg-white shadow-md rounded-lg p-6 max-w-md w-full">
+            <div className="text-center mb-4">
+              <FaMoneyBillWave className="mx-auto h-12 w-12 text-orange-500" />
+              <h3 className="mt-2 text-lg font-medium text-gray-900">Oturum Açmanız Gerekiyor</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Kazanç bilgilerinizi görüntülemek için lütfen giriş yapın.
+              </p>
+            </div>
+            <div className="mt-5">
+              <button
+                onClick={() => router.push('/portal/login')}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+              >
+                Giriş Yap
+              </button>
+            </div>
+          </div>
         </div>
       </FreelanceLayout>
     );
@@ -213,7 +188,7 @@ export default function FreelanceEarnings() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dt className="text-sm font-medium text-gray-500 truncate">
-                    Toplam Kazanç
+                    Toplam Teslim Kazancı
                   </dt>
                   <dd className="flex items-baseline">
                     <div className="text-2xl font-semibold text-gray-900">
@@ -233,7 +208,7 @@ export default function FreelanceEarnings() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dt className="text-sm font-medium text-gray-500 truncate">
-                    Tamamlanan Ödemeler
+                    Ödenmiş Teslimatlar
                   </dt>
                   <dd className="flex items-baseline">
                     <div className="text-2xl font-semibold text-gray-900">
@@ -253,7 +228,7 @@ export default function FreelanceEarnings() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dt className="text-sm font-medium text-gray-500 truncate">
-                    Bekleyen Ödemeler
+                    Bekleyen Teslim Ödemeleri
                   </dt>
                   <dd className="flex items-baseline">
                     <div className="text-2xl font-semibold text-gray-900">
@@ -269,7 +244,10 @@ export default function FreelanceEarnings() {
         {/* Başlık ve Arama Filtreleri */}
         <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
           <div className="px-4 py-5 sm:px-6 flex justify-between items-center flex-wrap">
-            <h2 className="text-xl font-semibold text-gray-900">Ödeme Geçmişi</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Teslim Edilen Taşımalardan Kazançlar</h2>
+            <span className="text-sm text-gray-500 mt-1">
+              Sadece teslim edilmiş taşımalar gelir olarak gösterilmektedir
+            </span>
           </div>
           
           <div className="border-t border-b border-gray-200 px-4 py-4 sm:px-6 bg-gray-50">

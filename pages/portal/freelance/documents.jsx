@@ -25,80 +25,44 @@ export default function FreelanceDocuments() {
   useEffect(() => {
     if (status === 'loading') return;
     
-    if (!session) return;
+    if (!session) {
+      // Oturum yoksa boş verilerle devam et
+      setDocuments([]);
+      setFilteredDocuments([]);
+      setLoading(false);
+      return;
+    }
 
-    // Örnek belge verileri - gerçek uygulamada API'den alınacak
-    const demoDocuments = [
-      {
-        id: 'DOC2024001',
-        title: 'Taşımacılık Yetki Belgesi',
-        type: 'license',
-        status: 'approved',
-        expiryDate: '2025-05-20',
-        uploadDate: '2023-05-20T10:30:00',
-        fileUrl: '/documents/license.pdf',
-        fileSize: '2.4 MB',
-        notes: 'K1 Yetki Belgesi',
-        verificationDate: '2023-05-22T14:30:00',
-        verifiedBy: 'Admin'
-      },
-      {
-        id: 'DOC2024002',
-        title: 'Araç Ruhsatı',
-        type: 'vehicle',
-        status: 'approved',
-        expiryDate: '2025-03-15',
-        uploadDate: '2023-03-15T11:15:00',
-        fileUrl: '/documents/vehicle_reg.pdf',
-        fileSize: '1.7 MB',
-        notes: '34ABC123 Plakalı Araç',
-        verificationDate: '2023-03-16T09:45:00',
-        verifiedBy: 'Admin'
-      },
-      {
-        id: 'DOC2024003',
-        title: 'Sigorta Poliçesi',
-        type: 'insurance',
-        status: 'expired',
-        expiryDate: '2024-02-10',
-        uploadDate: '2023-02-10T09:30:00',
-        fileUrl: '/documents/insurance.pdf',
-        fileSize: '3.2 MB',
-        notes: 'Taşınan yük için sigorta',
-        verificationDate: '2023-02-11T16:20:00',
-        verifiedBy: 'Admin'
-      },
-      {
-        id: 'DOC2024004',
-        title: 'Ehliyet',
-        type: 'driver',
-        status: 'approved',
-        expiryDate: '2028-06-25',
-        uploadDate: '2023-06-25T14:45:00',
-        fileUrl: '/documents/drivers_license.pdf',
-        fileSize: '1.1 MB',
-        notes: 'E Sınıfı Ehliyet',
-        verificationDate: '2023-06-27T10:10:00',
-        verifiedBy: 'Admin'
-      },
-      {
-        id: 'DOC2024005',
-        title: 'Vergi Levhası',
-        type: 'tax',
-        status: 'pending',
-        expiryDate: null,
-        uploadDate: '2024-05-15T16:30:00',
-        fileUrl: '/documents/tax_cert.pdf',
-        fileSize: '0.9 MB',
-        notes: '2024 Yılı Vergi Levhası',
-        verificationDate: null,
-        verifiedBy: null
+    // Belge verilerini API'den al
+    const fetchDocuments = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/portal/freelance-documents');
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log('Belgeler başarıyla alındı:', data);
+          
+          // API'den gelen verileri ata
+          setDocuments(data.documents || []);
+          setFilteredDocuments(data.documents || []);
+        } else {
+          console.error('Belge verisi alınamadı:', data.message);
+          // Hata durumunda boş veri göster
+          setDocuments([]);
+          setFilteredDocuments([]);
+        }
+      } catch (error) {
+        console.error('Belge verisi alınırken hata:', error);
+        // Hata durumunda boş veri göster
+        setDocuments([]);
+        setFilteredDocuments([]);
+      } finally {
+        setLoading(false);
       }
-    ];
+    };
     
-    setDocuments(demoDocuments);
-    setFilteredDocuments(demoDocuments);
-    setLoading(false);
+    fetchDocuments();
   }, [status, router, session]);
 
   // Filtreleme
@@ -245,24 +209,14 @@ export default function FreelanceDocuments() {
                   Tümü
                 </button>
                 <button
-                  onClick={() => setDocType('license')}
+                  onClick={() => setDocType('company')}
                   className={`mr-2 mb-2 px-3 py-1.5 text-sm font-medium rounded-md ${
-                    docType === 'license'
+                    docType === 'company'
                       ? 'bg-orange-500 text-white'
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  Yetki Belgeleri
-                </button>
-                <button
-                  onClick={() => setDocType('vehicle')}
-                  className={`mr-2 mb-2 px-3 py-1.5 text-sm font-medium rounded-md ${
-                    docType === 'vehicle'
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  Araç Belgeleri
+                  Şirket Belgeleri
                 </button>
                 <button
                   onClick={() => setDocType('driver')}
@@ -275,14 +229,14 @@ export default function FreelanceDocuments() {
                   Sürücü Belgeleri
                 </button>
                 <button
-                  onClick={() => setDocType('insurance')}
+                  onClick={() => setDocType('vehicle')}
                   className={`mr-2 mb-2 px-3 py-1.5 text-sm font-medium rounded-md ${
-                    docType === 'insurance'
+                    docType === 'vehicle'
                       ? 'bg-orange-500 text-white'
                       : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  Sigorta
+                  Araç Belgeleri
                 </button>
               </div>
               
@@ -332,13 +286,13 @@ export default function FreelanceDocuments() {
                       Başlık
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Belge Sahibi
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Durum
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Son Geçerlilik
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Yükleme Tarihi
                     </th>
                     <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       İşlemler
@@ -349,7 +303,7 @@ export default function FreelanceDocuments() {
                   {filteredDocuments.map((doc) => (
                     <tr key={doc.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{doc.id}</div>
+                        <div className="text-sm font-medium text-gray-900">{doc.id.substring(0, 12)}...</div>
                         <div className="text-sm text-gray-500">{getDocTypeText(doc.type)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -359,8 +313,16 @@ export default function FreelanceDocuments() {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">{doc.title}</div>
-                            <div className="text-sm text-gray-500">{doc.notes}</div>
+                            <div className="text-sm text-gray-500">{doc.notes?.substring(0, 50)}{doc.notes?.length > 50 ? '...' : ''}</div>
                           </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{doc.ownerName || '-'}</div>
+                        <div className="text-sm text-gray-500">
+                          {doc.documentOwner === 'company' ? 'Şirket' : 
+                           doc.documentOwner === 'driver' ? 'Sürücü' : 
+                           doc.documentOwner === 'vehicle' ? 'Araç' : '-'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -370,9 +332,6 @@ export default function FreelanceDocuments() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {formatDate(doc.expiryDate)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(doc.uploadDate)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button 

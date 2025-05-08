@@ -24,28 +24,6 @@ export default async function handler(req, res) {
   try {
     const { db } = await connectToDatabase();
     
-    // Kullanıcı bilgilerini al
-    const userId = session.user.id;
-    
-    // Kullanıcının şirket bilgilerini al
-    let company;
-    try {
-      company = await db.collection('companies').findOne({ 
-        $or: [
-          { _id: new ObjectId(userId) },
-          { _id: userId },
-          { email: session.user.email }
-        ]
-      });
-    } catch (error) {
-      console.error('Şirket bilgisi alınırken hata:', error);
-      return res.status(500).json({ success: false, message: 'Şirket bilgisi alınamadı' });
-    }
-
-    if (!company) {
-      return res.status(404).json({ success: false, message: 'Şirket bilgisi bulunamadı' });
-    }
-
     // Talebi bul
     let request;
     try {
@@ -65,26 +43,37 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
     }
 
-    // Talebi güncelle
+    // Freelance kullanıcı reddettiğinde, talebin "rejected_by" listesine kullanıcının ID'sini ekle
+    // Bu şekilde kullanıcıya bir daha gösterilmez
     try {
+      const userId = session.user.id;
+      
       const updateData = {
-        status: 'accepted',
-        carrierId: company._id.toString(),
-        carrierName: company.companyName || company.contactPerson || company.name || '',
-        carrierEmail: company.email || '',
-        carrierPhone: company.phoneNumber || '',
         updatedAt: new Date()
       };
       
+      // rejected_by alanı yoksa oluştur
+      const updateOperation = request.rejected_by 
+        ? { 
+            $addToSet: { rejected_by: userId },
+            $set: updateData
+          }
+        : { 
+            $set: { 
+              ...updateData,
+              rejected_by: [userId] 
+            } 
+          };
+      
       const result = await db.collection('requests').updateOne(
         { _id: request._id },
-        { $set: updateData }
+        updateOperation
       );
       
       if (result.modifiedCount === 1) {
         return res.status(200).json({ 
           success: true, 
-          message: 'Talep başarıyla kabul edildi'
+          message: 'Talep başarıyla reddedildi'
         });
       } else {
         return res.status(500).json({ 

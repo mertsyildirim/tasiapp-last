@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
-import { FaInbox, FaCalendarAlt, FaMapMarkerAlt, FaClock, FaTruck, FaCheckCircle, FaTimesCircle, FaInfoCircle } from 'react-icons/fa';
+import { FaInbox, FaCalendarAlt, FaMapMarkerAlt, FaClock, FaTruck, FaCheckCircle, FaTimesCircle, FaInfoCircle, FaEye, FaTimes, FaMapMarked, FaDirections } from 'react-icons/fa';
 import Link from 'next/link';
 import FreelanceLayout from '../../../components/portal/FreelanceLayout';
 
 export default function FreelanceRequests() {
   const router = useRouter();
   const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      router.replace('/portal/login');
-    },
+    required: false,
   });
   
   const [loading, setLoading] = useState(true);
@@ -19,9 +16,15 @@ export default function FreelanceRequests() {
   const [requestsData, setRequestsData] = useState({
     new: [],
     pending: [],
-    accepted: []
+    accepted: [],
+    missed: []
   });
   const [activeTab, setActiveTab] = useState('new');
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+
+  // Google Maps API key
+  const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyAKht3SqaVJpufUdq-vVQEfBEQKejT9Z8k";
 
   // Örnek veri
   useEffect(() => {
@@ -31,69 +34,41 @@ export default function FreelanceRequests() {
     
     if (!session) return;
 
-    // Örnek veri - gerçek uygulamada API'den alınacak
-    setRequestsData({
-      new: [
-        {
-          id: 'REQ2024001',
-          title: 'Ev Eşyası Taşıma',
-          customer: 'Ahmet Yılmaz',
-          from: 'Kadıköy, İstanbul',
-          to: 'Üsküdar, İstanbul',
-          date: '2024-05-20',
-          time: '09:00 - 12:00',
-          distance: '8 km',
-          price: '1500 ₺',
-          status: 'new',
-          createdAt: '2024-05-18T14:30:00'
-        },
-        {
-          id: 'REQ2024002',
-          title: 'Ofis Taşıma',
-          customer: 'MNO Teknoloji Ltd.',
-          from: 'Levent, İstanbul',
-          to: 'Maslak, İstanbul',
-          date: '2024-05-22',
-          time: '14:00 - 18:00',
-          distance: '5 km',
-          price: '3200 ₺',
-          status: 'new',
-          createdAt: '2024-05-18T10:15:00'
+    // Talepleri API'den al
+    const fetchRequests = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch('/api/portal/freelance-requests');
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log('Talepler başarıyla alındı:', data.requests);
+          setRequestsData(data.requests);
+        } else {
+          console.error('Talep verisi alınamadı:', data.message);
+          // Hata durumunda boş veri göster
+          setRequestsData({
+            new: [],
+            pending: [],
+            accepted: [],
+            missed: []
+          });
         }
-      ],
-      pending: [
-        {
-          id: 'REQ2024003',
-          title: 'Mobilya Taşıma',
-          customer: 'Zeynep Kaya',
-          from: 'Bakırköy, İstanbul',
-          to: 'Beylikdüzü, İstanbul',
-          date: '2024-05-25',
-          time: '10:00 - 14:00',
-          distance: '25 km',
-          price: '2800 ₺',
-          status: 'pending',
-          createdAt: '2024-05-17T09:45:00'
-        }
-      ],
-      accepted: [
-        {
-          id: 'REQ2024004',
-          title: 'Paket Teslimatı',
-          customer: 'Ali Demir',
-          from: 'Beyoğlu, İstanbul',
-          to: 'Şişli, İstanbul',
-          date: '2024-05-19',
-          time: '15:00 - 16:00',
-          distance: '4 km',
-          price: '750 ₺',
-          status: 'accepted',
-          createdAt: '2024-05-16T16:20:00'
-        }
-      ]
-    });
-    
-    setLoading(false);
+      } catch (error) {
+        console.error('Talep verisi alınırken hata:', error);
+        // Hata durumunda boş veri göster
+        setRequestsData({
+          new: [],
+          pending: [],
+          accepted: [],
+          missed: []
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRequests();
   }, [status, router, session]);
 
   // Yükleme durumu
@@ -102,6 +77,33 @@ export default function FreelanceRequests() {
       <FreelanceLayout title="Talepler">
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+        </div>
+      </FreelanceLayout>
+    );
+  }
+
+  // Oturum açılmamış
+  if (status === 'unauthenticated') {
+    return (
+      <FreelanceLayout title="Talepler">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <div className="bg-white shadow-md rounded-lg p-6 max-w-md w-full">
+            <div className="text-center mb-4">
+              <FaInbox className="mx-auto h-12 w-12 text-orange-500" />
+              <h3 className="mt-2 text-lg font-medium text-gray-900">Oturum Açmanız Gerekiyor</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Taşıma taleplerini görüntülemek için lütfen giriş yapın.
+              </p>
+            </div>
+            <div className="mt-5">
+              <button
+                onClick={() => router.push('/portal/login')}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+              >
+                Giriş Yap
+              </button>
+            </div>
+          </div>
         </div>
       </FreelanceLayout>
     );
@@ -133,43 +135,95 @@ export default function FreelanceRequests() {
     }
   };
 
-  const handleAccept = (id) => {
-    // API isteği yapılacak - şimdi sadece state güncelleme yapıyoruz
-    console.log(`Talep kabul edildi: ${id}`);
-    
-    // İlgili talebi new'den alıp accepted'a taşı
-    const updatedData = { ...requestsData };
-    const requestIndex = updatedData.new.findIndex(req => req.id === id);
-    
-    if (requestIndex !== -1) {
-      const request = updatedData.new[requestIndex];
-      request.status = 'accepted';
-      
-      // Listeden kaldır ve accepted'a ekle
-      updatedData.new.splice(requestIndex, 1);
-      updatedData.accepted.push(request);
-      
-      setRequestsData(updatedData);
+  const handleAccept = async (id) => {
+    try {
+      // API isteği yap
+      const response = await fetch('/api/portal/accept-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestId: id
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log(`Talep kabul edildi: ${id}`);
+        
+        // İlgili talebi new'den alıp accepted'a taşı
+        const updatedData = { ...requestsData };
+        const requestIndex = updatedData.new.findIndex(req => req.id === id);
+        
+        if (requestIndex !== -1) {
+          const request = updatedData.new[requestIndex];
+          request.status = 'accepted';
+          
+          // Listeden kaldır ve accepted'a ekle
+          updatedData.new.splice(requestIndex, 1);
+          updatedData.accepted.push(request);
+          
+          setRequestsData(updatedData);
+        }
+      } else {
+        alert(`Talep kabul edilirken bir hata oluştu: ${data.message}`);
+      }
+    } catch (error) {
+      console.error('Talep kabul hatası:', error);
+      alert('Talep kabul edilirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
     }
   };
 
-  const handleReject = (id) => {
-    // API isteği yapılacak - şimdi sadece state güncelleme yapıyoruz
-    console.log(`Talep reddedildi: ${id}`);
-    
-    // İlgili talebi listeden çıkar
-    const updatedData = { ...requestsData };
-    const requestIndex = updatedData.new.findIndex(req => req.id === id);
-    
-    if (requestIndex !== -1) {
-      updatedData.new.splice(requestIndex, 1);
-      setRequestsData(updatedData);
+  const handleReject = async (id) => {
+    try {
+      // API isteği yap
+      const response = await fetch('/api/portal/reject-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestId: id
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log(`Talep reddedildi: ${id}`);
+        
+        // İlgili talebi listeden çıkar
+        const updatedData = { ...requestsData };
+        const requestIndex = updatedData.new.findIndex(req => req.id === id);
+        
+        if (requestIndex !== -1) {
+          updatedData.new.splice(requestIndex, 1);
+          setRequestsData(updatedData);
+        }
+      } else {
+        alert(`Talep reddedilirken bir hata oluştu: ${data.message}`);
+      }
+    } catch (error) {
+      console.error('Talep reddetme hatası:', error);
+      alert('Talep reddedilirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
     }
   };
 
   const handleOffer = (id) => {
     // Teklif verme sayfasına yönlendir
     router.push(`/portal/freelance/offer/${id}`);
+  };
+
+  const handleViewDetails = (request) => {
+    setSelectedRequest(request);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedRequest(null);
   };
 
   return (
@@ -182,7 +236,7 @@ export default function FreelanceRequests() {
           </div>
           
           <div className="border-b border-gray-200">
-            <nav className="flex">
+            <nav className="flex flex-wrap">
               <button
                 onClick={() => setActiveTab('new')}
                 className={`px-6 py-3 text-sm font-medium ${
@@ -215,6 +269,17 @@ export default function FreelanceRequests() {
               >
                 Kabul Edilenler ({requestsData.accepted.length})
               </button>
+              
+              <button
+                onClick={() => setActiveTab('missed')}
+                className={`px-6 py-3 text-sm font-medium ${
+                  activeTab === 'missed'
+                    ? 'border-b-2 border-orange-500 text-orange-600'
+                    : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Kaçırılan Talepler ({requestsData.missed.length})
+              </button>
             </nav>
           </div>
         </div>
@@ -230,7 +295,9 @@ export default function FreelanceRequests() {
                   ? 'Şu anda yeni taşıma talebi bulunmamaktadır.'
                   : activeTab === 'pending'
                   ? 'Bekleyen teklifiniz bulunmamaktadır.'
-                  : 'Kabul edilmiş taşıma talebi bulunmamaktadır.'}
+                  : activeTab === 'accepted'
+                  ? 'Kabul edilmiş taşıma talebi bulunmamaktadır.'
+                  : 'Kaçırılan taşıma talebi bulunmamaktadır.'}
               </p>
             </div>
           ) : (
@@ -244,32 +311,13 @@ export default function FreelanceRequests() {
                         <h3 className="text-lg font-medium text-gray-900">{request.title}</h3>
                         <span className="ml-2 text-xs text-gray-500">{formatTimeAgo(request.createdAt)}</span>
                       </div>
-                      <p className="mt-1 text-sm text-gray-600">Müşteri: {request.customer}</p>
                     </div>
                     
                     {activeTab === 'new' && (
-                      <div className="mt-4 sm:mt-0 sm:flex sm:space-x-3">
-                        <button
-                          onClick={() => handleAccept(request.id)}
-                          className="inline-flex items-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                        >
-                          <FaCheckCircle className="mr-2 -ml-1 h-4 w-4" />
-                          Kabul Et
-                        </button>
-                        <button
-                          onClick={() => handleOffer(request.id)}
-                          className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-                        >
-                          <FaInfoCircle className="mr-2 -ml-1 h-4 w-4 text-orange-500" />
-                          Teklif Ver
-                        </button>
-                        <button
-                          onClick={() => handleReject(request.id)}
-                          className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                        >
-                          <FaTimesCircle className="mr-2 -ml-1 h-4 w-4 text-red-500" />
-                          Reddet
-                        </button>
+                      <div className="mt-4 sm:mt-0">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          Yeni Talep
+                        </span>
                       </div>
                     )}
                     
@@ -327,8 +375,18 @@ export default function FreelanceRequests() {
                       </div>
                     </div>
                     <div className="flex items-center">
-                      <span className="text-lg font-bold text-green-600">{request.price}</span>
+                      <span className="text-xl font-bold text-green-600">{request.price}</span>
                     </div>
+                  </div>
+                  
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={() => handleViewDetails(request)}
+                      className="inline-flex items-center px-3 py-1.5 border border-orange-300 rounded-md text-sm font-medium text-orange-600 bg-white hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                    >
+                      <FaEye className="mr-2 -ml-1 h-4 w-4" />
+                      Detaylar
+                    </button>
                   </div>
                 </li>
               ))}
@@ -336,6 +394,157 @@ export default function FreelanceRequests() {
           )}
         </div>
       </div>
+
+      {/* Detay Modalı */}
+      {showModal && selectedRequest && (
+        <div className="fixed inset-0 overflow-y-auto z-50">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full sm:p-6">
+              <div className="absolute top-0 right-0 pt-4 pr-4">
+                <button
+                  type="button"
+                  className="bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none"
+                  onClick={closeModal}
+                >
+                  <span className="sr-only">Kapat</span>
+                  <FaTimes className="h-6 w-6" />
+                </button>
+              </div>
+              <div>
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-orange-100">
+                  <FaTruck className="h-6 w-6 text-orange-600" />
+                </div>
+                <div className="mt-3 text-center sm:mt-5">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    {selectedRequest.title}
+                  </h3>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">
+                      Talep ID: {selectedRequest.id}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Harita Alanı */}
+              <div className="my-6 border border-gray-300 rounded-lg overflow-hidden h-64">
+                <div className="relative w-full h-full bg-gray-100 flex items-center justify-center">
+                  <div className="absolute inset-0">
+                    <iframe
+                      width="100%"
+                      height="100%"
+                      frameBorder="0"
+                      style={{ border: 0 }}
+                      src={`https://www.google.com/maps/embed/v1/directions?key=${GOOGLE_MAPS_API_KEY}&origin=${encodeURIComponent(selectedRequest.from)}&destination=${encodeURIComponent(selectedRequest.to)}&mode=driving`}
+                      allowFullScreen
+                    ></iframe>
+                  </div>
+                  <div className="absolute bottom-2 right-2">
+                    <button
+                      className="bg-white rounded-md shadow-md p-2 text-gray-700 hover:bg-gray-50 focus:outline-none"
+                      onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(selectedRequest.from)}&destination=${encodeURIComponent(selectedRequest.to)}&travelmode=driving`, '_blank')}
+                    >
+                      <FaDirections className="h-5 w-5 text-orange-500" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-5 sm:mt-6">
+                <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 px-4 py-2">
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Müşteri</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{selectedRequest.customer}</dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Durum</dt>
+                    <dd className="mt-1 text-sm text-gray-900">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        selectedRequest.status === 'new' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : selectedRequest.status === 'pending' 
+                          ? 'bg-yellow-100 text-yellow-800' 
+                          : selectedRequest.status === 'accepted'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {selectedRequest.status === 'new' 
+                          ? 'Yeni Talep' 
+                          : selectedRequest.status === 'pending' 
+                          ? 'Bekliyor' 
+                          : selectedRequest.status === 'accepted'
+                          ? 'Kabul Edildi'
+                          : 'Kaçırıldı'}
+                      </span>
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Nereden</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{selectedRequest.from}</dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Nereye</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{selectedRequest.to}</dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Tarih</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{formatDate(selectedRequest.date)}</dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Saat</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{selectedRequest.time}</dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Mesafe</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{selectedRequest.distance}</dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Ücret</dt>
+                    <dd className="mt-1 text-sm text-gray-900 font-medium">{selectedRequest.price}</dd>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <dt className="text-sm font-medium text-gray-500">Talep Zamanı</dt>
+                    <dd className="mt-1 text-sm text-gray-900">{formatTimeAgo(selectedRequest.createdAt)}</dd>
+                  </div>
+                </dl>
+              </div>
+              
+              <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                {selectedRequest.status === 'new' && (
+                  <>
+                    <button
+                      type="button"
+                      className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:col-start-2 sm:text-sm"
+                      onClick={() => {
+                        handleAccept(selectedRequest.id);
+                        closeModal();
+                      }}
+                    >
+                      <FaCheckCircle className="mr-2 h-5 w-5" />
+                      Kabul Et
+                    </button>
+                  </>
+                )}
+                {selectedRequest.status !== 'new' && (
+                  <button
+                    type="button"
+                    className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 sm:text-sm"
+                    onClick={closeModal}
+                  >
+                    Kapat
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </FreelanceLayout>
   );
 } 

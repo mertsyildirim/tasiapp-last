@@ -7,22 +7,88 @@ import FreelanceLayout from '../../../components/portal/FreelanceLayout';
 export default function FreelanceSettings() {
   const router = useRouter();
   const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      router.replace('/portal/login');
-    },
+    required: false,
   });
   
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState(null);
+  const [saveStatus, setSaveStatus] = useState(null);
   
   useEffect(() => {
     if (status === 'loading') return;
     
-    if (!session) return;
+    console.log("Freelance Settings - Session durumu:", status, "Session:", session);
+    
+    if (!session) {
+      setLoading(false);
+      return;
+    }
 
-    // Örnek ayarlar - gerçek uygulamada API'den alınacak
-    const demoSettings = {
+    // API'den ayarları getir
+    const fetchSettings = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/portal/freelance-settings');
+        
+        // Response status kontrolü
+        if (!response.ok) {
+          console.error('API yanıt hatası:', response.status, response.statusText);
+          throw new Error(`API yanıt hatası: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          console.log('Ayarlar başarıyla alındı:', data.settings);
+          setSettings(data.settings);
+        } else {
+          console.error('Ayarlar alınamadı:', data.message);
+          // Varsayılan boş ayarlar oluştur
+          setSettings({
+            notifications: {
+              email: {
+                newRequests: true,
+                taskUpdates: true,
+                paymentNotifications: true,
+                marketingEmails: false,
+              },
+              sms: {
+                newRequests: true,
+                taskUpdates: true,
+                paymentNotifications: true,
+                emergencyAlerts: true,
+              },
+              pushNotifications: {
+                newRequests: true,
+                taskUpdates: true,
+                paymentNotifications: true,
+                systemUpdates: true,
+              },
+            },
+            privacy: {
+              showProfile: true,
+              showContactInfo: true,
+              showRating: true,
+              shareStatistics: false,
+            },
+            preferences: {
+              language: 'tr',
+              timezone: 'Europe/Istanbul',
+              currency: 'TRY',
+              distanceUnit: 'km',
+              weightUnit: 'ton',
+            },
+            security: {
+              twoFactorEnabled: false,
+              loginNotifications: true,
+              lastPasswordChange: new Date().toISOString(),
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Ayarlar alınırken hata:', error);
+        // Hata durumunda varsayılan ayarları kullan
+        setSettings({
       notifications: {
         email: {
           newRequests: true,
@@ -59,13 +125,16 @@ export default function FreelanceSettings() {
       security: {
         twoFactorEnabled: false,
         loginNotifications: true,
-        lastPasswordChange: '2023-12-15T10:30:00',
+            lastPasswordChange: new Date().toISOString(),
+          }
+        });
+      } finally {
+        setLoading(false);
       }
     };
     
-    setSettings(demoSettings);
-    setLoading(false);
-  }, [status, router, session]);
+    fetchSettings();
+  }, [status, session]);
 
   // Yükleme durumu
   if (status === 'loading' || loading) {
@@ -73,6 +142,33 @@ export default function FreelanceSettings() {
       <FreelanceLayout title="Ayarlar">
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+        </div>
+      </FreelanceLayout>
+    );
+  }
+
+  // Oturum açılmamış
+  if (status === 'unauthenticated') {
+    return (
+      <FreelanceLayout title="Ayarlar">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <div className="bg-white shadow-md rounded-lg p-6 max-w-md w-full">
+            <div className="text-center mb-4">
+              <FaTools className="mx-auto h-12 w-12 text-orange-500" />
+              <h3 className="mt-2 text-lg font-medium text-gray-900">Oturum Açmanız Gerekiyor</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Ayarlarınızı görüntülemek için lütfen giriş yapın.
+              </p>
+            </div>
+            <div className="mt-5">
+              <button
+                onClick={() => router.push('/portal/login')}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+              >
+                Giriş Yap
+              </button>
+            </div>
+          </div>
         </div>
       </FreelanceLayout>
     );
@@ -101,14 +197,133 @@ export default function FreelanceSettings() {
     }));
   };
 
-  const handleSaveSettings = () => {
-    // API'ye gönderme işlemi burada yapılacak
-    alert('Ayarlar kaydedildi');
+  const handleSaveSettings = async () => {
+    // API'ye ayarları gönder
+    try {
+      setSaveStatus('saving');
+      const response = await fetch('/api/portal/freelance-settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          settings: settings
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('Ayarlar başarıyla kaydedildi');
+        setSaveStatus('success');
+        
+        // 3 saniye sonra durum mesajını temizle
+        setTimeout(() => {
+          setSaveStatus(null);
+        }, 3000);
+      } else {
+        console.error('Ayarlar kaydedilemedi:', data.message);
+        setSaveStatus('error');
+        
+        // 3 saniye sonra durum mesajını temizle
+        setTimeout(() => {
+          setSaveStatus(null);
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Ayarlar kaydedilirken hata:', error);
+      setSaveStatus('error');
+      
+      // 3 saniye sonra durum mesajını temizle
+      setTimeout(() => {
+        setSaveStatus(null);
+      }, 3000);
+    }
   };
 
-  const handleResetSettings = () => {
-    // API'den ayarları tekrar çekme işlemi burada yapılacak
-    alert('Ayarlar varsayılana sıfırlandı');
+  const handleResetSettings = async () => {
+    try {
+      // Tüm ayarları açık duruma getir
+      const defaultSettings = {
+        notifications: {
+          email: {
+            newRequests: true,
+            taskUpdates: true,
+            paymentNotifications: true,
+            marketingEmails: true,
+          },
+          sms: {
+            newRequests: true,
+            taskUpdates: true,
+            paymentNotifications: true,
+            emergencyAlerts: true,
+          },
+          pushNotifications: {
+            newRequests: true,
+            taskUpdates: true,
+            paymentNotifications: true,
+            systemUpdates: true,
+          },
+        },
+        privacy: {
+          showProfile: true,
+          showContactInfo: true,
+          showRating: true,
+          shareStatistics: true,
+        },
+        preferences: {
+          language: 'tr',
+          timezone: 'Europe/Istanbul',
+          currency: 'TRY',
+          distanceUnit: 'km',
+          weightUnit: 'ton',
+        },
+        security: {
+          twoFactorEnabled: true,
+          loginNotifications: true,
+          lastPasswordChange: new Date().toISOString(),
+        }
+      };
+      
+      // Ayarları güncelle
+      setSettings(defaultSettings);
+      setSaveStatus('resetting');
+      
+      // API'ye de ayarları gönder
+      const response = await fetch('/api/portal/freelance-settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          settings: defaultSettings
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('Sıfırlanan ayarlar başarıyla kaydedildi');
+        setSaveStatus('reset');
+      } else {
+        console.error('Sıfırlanan ayarlar kaydedilemedi:', data.message);
+        setSaveStatus('error');
+      }
+      
+      // 3 saniye sonra durum mesajını temizle
+      setTimeout(() => {
+        setSaveStatus(null);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Ayarlar sıfırlanırken hata:', error);
+      setSaveStatus('error');
+      
+      // 3 saniye sonra durum mesajını temizle
+      setTimeout(() => {
+        setSaveStatus(null);
+      }, 3000);
+    }
   };
 
   if (!settings) return null;
@@ -119,7 +334,22 @@ export default function FreelanceSettings() {
         <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
           <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900">Sistem Ayarları</h2>
-            <div className="flex space-x-3">
+            <div className="flex space-x-3 items-center">
+              {saveStatus && (
+                <div className={`text-sm px-3 py-1 rounded-md ${
+                  saveStatus === 'success' ? 'bg-green-100 text-green-800' : 
+                  saveStatus === 'error' ? 'bg-red-100 text-red-800' :
+                  saveStatus === 'reset' ? 'bg-blue-100 text-blue-800' :
+                  saveStatus === 'resetting' ? 'bg-blue-100 text-blue-800' :
+                  'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {saveStatus === 'success' && 'Ayarlar kaydedildi'}
+                  {saveStatus === 'error' && 'Hata oluştu'}
+                  {saveStatus === 'saving' && 'Kaydediliyor...'}
+                  {saveStatus === 'reset' && 'Tüm ayarlar açık duruma getirildi'}
+                  {saveStatus === 'resetting' && 'Ayarlar sıfırlanıyor...'}
+                </div>
+              )}
               <button
                 onClick={handleResetSettings}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
