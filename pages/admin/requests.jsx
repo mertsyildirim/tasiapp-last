@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { FaSearch, FaEye, FaCheck, FaTimes, FaSms, FaMapMarkerAlt, FaTruck, FaCompass, FaCalendarAlt, FaMoneyBillWave, FaEnvelope, FaSpinner, FaClipboardList, FaBuilding, FaChevronLeft, FaChevronRight } from 'react-icons/fa'
+import { FaSearch, FaEye, FaCheck, FaTimes, FaSms, FaMapMarkerAlt, FaTruck, FaCompass, FaCalendarAlt, FaMoneyBillWave, FaEnvelope, FaSpinner, FaClipboardList, FaBuilding, FaChevronLeft, FaChevronRight, FaUser, FaPhone, FaRuler } from 'react-icons/fa'
 import AdminLayout from '../../components/admin/Layout'
 import { GoogleMap, useJsApiLoader, Marker, DirectionsRenderer } from '@react-google-maps/api'
 import axios from 'axios'
@@ -76,6 +76,16 @@ export default function RequestsPage() {
     const cityName = city.split(',')[0].trim();
     return cities[cityName] || cities['İstanbul']; // Varsayılan olarak İstanbul
   }
+
+  // İlçe ve il bilgisini çıkarma
+  const getDistrictCity = (location) => {
+    if (!location) return '-';
+    
+    console.log('Adres:', location); // Debug için
+    
+    // Basitçe göster, formatlama yapmadan
+    return location;
+  };
 
   // API'den talep verilerini getirme
   useEffect(() => {
@@ -237,8 +247,8 @@ export default function RequestsPage() {
   // Talep detaylarını görüntüleme
   const handleViewRequest = (request) => {
     setShowRequestDetailModal(request);
-    if (request.from && request.to) {
-      getRoute(request.from, request.to);
+    if (request.pickupLocation && request.deliveryLocation) {
+      getRoute(request.pickupLocation, request.deliveryLocation);
     }
   };
 
@@ -263,7 +273,7 @@ export default function RequestsPage() {
         credentials: 'include',
         body: JSON.stringify({
           requestId: showConfirmSmsModal._id,
-          phone: showConfirmSmsModal.phone,
+          phone: showConfirmSmsModal.customerPhone,
           message: `Sayın ${showConfirmSmsModal.customerName}, talebiniz ${showConfirmSmsModal.status === 'approved' ? 'onaylandı' : 'reddedildi'}. Detaylar için web sitemizi ziyaret edebilirsiniz.`
         })
       });
@@ -292,16 +302,24 @@ export default function RequestsPage() {
   // Durum rengini belirleme
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'approved':
-        return 'bg-green-100 text-green-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      case 'completed':
+      case 'Yeni':
         return 'bg-blue-100 text-blue-800';
-      case 'cancelled':
+      case 'Taşıyıcı Aranıyor':
+        return 'bg-purple-100 text-purple-800';
+      case 'Taşıyıcı Onayı Bekleniyor':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Taşıyıcı Onay Olmadı':
+        return 'bg-red-100 text-red-800';
+      case 'İptal Edildi':
         return 'bg-gray-100 text-gray-800';
+      case 'Ödeme Bekleniyor':
+        return 'bg-green-100 text-green-800';
+      case 'İndirim SMS Gönderildi':
+        return 'bg-orange-100 text-orange-800';
+      case 'Fiyat Belirlendi':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'Randevu Oluşturuldu':
+        return 'bg-teal-100 text-teal-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -534,37 +552,33 @@ export default function RequestsPage() {
                     requests.map((request) => (
                     <tr key={request._id || Math.random()} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        #{request._id ? request._id.substring(0, 8) : 'N/A'}
+                        #{request.id ? request.id.substring(0, 8) : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
                             <span className="text-gray-500 font-medium">
-                              {request.name ? request.name.charAt(0).toUpperCase() : 'M'}
+                              {request.customerName ? request.customerName.charAt(0).toUpperCase() : 'M'}
                             </span>
                             </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{request.name}</div>
-                            <div className="text-sm text-gray-500">{request.phone}</div>
+                            <div className="text-sm font-medium text-gray-900">{request.customerName}</div>
+                            <div className="text-sm text-gray-500">{request.customerPhone}</div>
                             </div>
                           </div>
                         </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {request.from}
+                        {getDistrictCity(request.pickupLocation)}
                         </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {request.to}
+                        {getDistrictCity(request.deliveryLocation)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(request.createdAt).toLocaleDateString('tr-TR')}
+                        {request.date || (request.createdAt ? new Date(request.createdAt).toLocaleDateString('tr-TR') : '-')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(request.status)}`}>
-                          {request.status === 'pending' && 'Beklemede'}
-                          {request.status === 'approved' && 'Onaylandı'}
-                          {request.status === 'rejected' && 'Reddedildi'}
-                          {request.status === 'completed' && 'Tamamlandı'}
-                          {request.status === 'cancelled' && 'İptal Edildi'}
+                          {request.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -638,154 +652,224 @@ export default function RequestsPage() {
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 transition-opacity" aria-hidden="true">
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-                </div>
+            </div>
 
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
             <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg leading-6 font-medium text-gray-900">
-                        Talep Detayları
-                      </h3>
-                <button
-                  onClick={() => setShowRequestDetailModal(null)}
-                        className="text-gray-400 hover:text-gray-500"
-                >
-                        <FaTimes />
-                </button>
+              {/* Modal Header */}
+              <div className="bg-orange-50 px-6 py-4 border-b border-orange-100">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-orange-800">
+                    Talep Detayları
+                  </h3>
+                  <div className="flex items-center">
+                    <span className="mr-2 text-sm text-gray-500">
+                      ID: #{showRequestDetailModal.id ? showRequestDetailModal.id.substring(0, 8) : 'N/A'}
+                    </span>
+                    <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(showRequestDetailModal.status)}`}>
+                      {showRequestDetailModal.status}
+                    </span>
+                  </div>
+                </div>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                        <h4 className="text-md font-medium text-gray-700 mb-2">Müşteri Bilgileri</h4>
-                        <div className="bg-gray-50 p-4 rounded-md">
-                          <div className="flex items-center mb-3">
-                            <div className="flex-shrink-0 h-12 w-12 bg-gray-200 rounded-full flex items-center justify-center">
-                              <span className="text-gray-500 font-medium text-lg">
-                                {showRequestDetailModal.name ? showRequestDetailModal.name.charAt(0).toUpperCase() : 'M'}
-                              </span>
-                            </div>
-                            <div className="ml-3">
-                              <div className="text-sm font-medium text-gray-900">{showRequestDetailModal.name}</div>
-                              <div className="text-sm text-gray-500">{showRequestDetailModal.phone}</div>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div className="flex items-center">
-                              <FaEnvelope className="text-gray-400 mr-2" />
-                              <span>{showRequestDetailModal.email || 'E-posta yok'}</span>
-                            </div>
-                            <div className="flex items-center">
-                              <FaBuilding className="text-gray-400 mr-2" />
-                              <span>{showRequestDetailModal.company || 'Şirket yok'}</span>
-                            </div>
-                          </div>
-                    </div>
-                  </div>
-
+              
+              {/* Modal Body */}
+              <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
+                {/* İstatistik Kartları */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {/* Müşteri Kart */}
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="text-md font-medium text-gray-700 mb-2">Taşıma Bilgileri</h4>
-                        <div className="bg-gray-50 p-4 rounded-md">
-                          <div className="grid grid-cols-1 gap-3 text-sm">
-                            <div className="flex items-center">
-                        <FaMapMarkerAlt className="text-red-500 mr-2" /> 
-                              <span><strong>Nereden:</strong> {showRequestDetailModal.from}</span>
-                            </div>
-                            <div className="flex items-center">
-                        <FaMapMarkerAlt className="text-green-500 mr-2" /> 
-                              <span><strong>Nereye:</strong> {showRequestDetailModal.to}</span>
-                    </div>
-                            <div className="flex items-center">
-                              <FaCalendarAlt className="text-blue-500 mr-2" />
-                              <span><strong>Tarih:</strong> {new Date(showRequestDetailModal.createdAt).toLocaleDateString('tr-TR')}</span>
-                  </div>
-                            <div className="flex items-center">
-                              <FaMoneyBillWave className="text-yellow-500 mr-2" />
-                              <span><strong>Fiyat:</strong> {showRequestDetailModal.price ? `${showRequestDetailModal.price} TL` : 'Belirtilmemiş'}</span>
-                            </div>
-                          </div>
-                        </div>
+                        <p className="text-xs font-medium text-gray-500 uppercase">Müşteri</p>
+                        <p className="text-lg font-semibold text-gray-900">{showRequestDetailModal.customerName || "N/A"}</p>
+                      </div>
+                      <div className="p-2 bg-blue-100 rounded-full">
+                        <FaUser className="h-5 w-5 text-blue-600" />
+                      </div>
                     </div>
                   </div>
 
-                    <div className="mt-6">
-                      <h4 className="text-md font-medium text-gray-700 mb-2">Durum Bilgisi</h4>
-                      <div className="bg-gray-50 p-4 rounded-md">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(showRequestDetailModal.status)}`}>
-                              {showRequestDetailModal.status === 'pending' && 'Beklemede'}
-                              {showRequestDetailModal.status === 'approved' && 'Onaylandı'}
-                              {showRequestDetailModal.status === 'rejected' && 'Reddedildi'}
-                              {showRequestDetailModal.status === 'completed' && 'Tamamlandı'}
-                              {showRequestDetailModal.status === 'cancelled' && 'İptal Edildi'}
-                            </span>
-                            <span className="ml-2 text-sm text-gray-500">
-                              {showRequestDetailModal.statusUpdatedAt ? 
-                                `Son güncelleme: ${new Date(showRequestDetailModal.statusUpdatedAt).toLocaleDateString('tr-TR')}` : 
-                                'Güncelleme tarihi yok'}
-                            </span>
+                  {/* Fiyat Kart */}
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase">Fiyat</p>
+                        <p className="text-lg font-semibold text-green-600">
+                          {showRequestDetailModal.price ? `${showRequestDetailModal.price} TL` : "Belirtilmemiş"}
+                        </p>
                       </div>
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handleSendSMS(showRequestDetailModal)}
-                              className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                            >
-                              <FaSms className="mr-1" /> SMS Gönder
-                            </button>
+                      <div className="p-2 bg-green-100 rounded-full">
+                        <FaMoneyBillWave className="h-5 w-5 text-green-600" />
+                      </div>
                     </div>
-                        </div>
+                  </div>
+
+                  {/* Tarih Kart */}
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase">Oluşturulma Tarihi</p>
+                        <p className="text-lg font-semibold text-purple-600">
+                          {showRequestDetailModal.date || (showRequestDetailModal.createdAt ? new Date(showRequestDetailModal.createdAt).toLocaleDateString('tr-TR') : 'Belirtilmemiş')}
+                        </p>
                       </div>
+                      <div className="p-2 bg-purple-100 rounded-full">
+                        <FaCalendarAlt className="h-5 w-5 text-purple-600" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                    {showRequestDetailModal.from && showRequestDetailModal.to && (
-                      <div className="mt-6">
-                        <h4 className="text-md font-medium text-gray-700 mb-2">Rota Haritası</h4>
-                        <div className="bg-gray-50 p-4 rounded-md h-80">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Sol Taraf - Bilgiler */}
+                  <div className="space-y-6">
+                    {/* Müşteri Bilgileri */}
+                    <div className="space-y-4">
+                      <h4 className="text-md font-medium text-gray-700">Müşteri Bilgileri</h4>
+                      
+                      <div>
+                        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                          Adı Soyadı
+                        </label>
+                        <div className="text-sm font-medium text-gray-900 bg-gray-50 p-2 rounded-md border border-gray-100">
+                          {showRequestDetailModal.customerName || "-"}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                          Telefon
+                        </label>
+                        <div className="text-sm font-medium text-gray-900 bg-gray-50 p-2 rounded-md border border-gray-100 flex items-center">
+                          <FaPhone className="text-gray-400 mr-2" />
+                          {showRequestDetailModal.customerPhone || "-"}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                          E-posta
+                        </label>
+                        <div className="text-sm font-medium text-gray-900 bg-gray-50 p-2 rounded-md border border-gray-100 flex items-center">
+                          <FaEnvelope className="text-gray-400 mr-2" />
+                          {showRequestDetailModal.email || 'Belirtilmemiş'}
+                        </div>
+                      </div>
+
+                      {showRequestDetailModal.company && (
+                        <div>
+                          <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                            Firma
+                          </label>
+                          <div className="text-sm font-medium text-gray-900 bg-gray-50 p-2 rounded-md border border-gray-100 flex items-center">
+                            <FaBuilding className="text-gray-400 mr-2" />
+                            {showRequestDetailModal.company || 'Belirtilmemiş'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Taşıma Bilgileri */}
+                    <div className="space-y-4">
+                      <h4 className="text-md font-medium text-gray-700">Taşıma Bilgileri</h4>
+                      
+                      <div>
+                        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                          Nereden
+                        </label>
+                        <div className="text-sm font-medium text-gray-900 bg-gray-50 p-2 rounded-md border border-gray-100 flex items-start">
+                          <FaMapMarkerAlt className="text-red-500 mr-2 mt-0.5" />
+                          <span>{showRequestDetailModal.pickupLocation || "-"}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                          Nereye
+                        </label>
+                        <div className="text-sm font-medium text-gray-900 bg-gray-50 p-2 rounded-md border border-gray-100 flex items-start">
+                          <FaMapMarkerAlt className="text-green-500 mr-2 mt-0.5" />
+                          <span>{showRequestDetailModal.deliveryLocation || "-"}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                          Mesafe
+                        </label>
+                        <div className="text-sm font-medium text-gray-900 bg-gray-50 p-2 rounded-md border border-gray-100 flex items-center">
+                          <FaRuler className="text-gray-400 mr-2" />
+                          {showRequestDetailModal.distance ? `${showRequestDetailModal.distance} km` : "Belirtilmemiş"}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                          Araç Tipi
+                        </label>
+                        <div className="text-sm font-medium text-gray-900 bg-gray-50 p-2 rounded-md border border-gray-100 flex items-center">
+                          <FaTruck className="text-gray-400 mr-2" />
+                          {showRequestDetailModal.vehicle || "Belirtilmemiş"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {showRequestDetailModal.description && (
+                      <div>
+                        <h4 className="text-md font-medium text-gray-700 mb-2">Açıklama</h4>
+                        <div className="text-sm text-gray-900 bg-gray-50 p-3 rounded-md border border-gray-100">
+                          {showRequestDetailModal.description}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sağ Taraf - Harita */}
+                  <div className="h-full">
+                    <h4 className="text-md font-medium text-gray-700 mb-2">Rota Haritası</h4>
+                    <div className="bg-gray-50 p-1 rounded-md border border-gray-100 h-[500px]">
                       {isLoaded ? (
                         <GoogleMap
-                          mapContainerStyle={containerStyle}
+                          mapContainerStyle={{width: '100%', height: '100%'}}
                           center={center}
-                              zoom={6}
+                          zoom={6}
                           onLoad={onLoad}
                           onUnmount={onUnmount}
-                            >
-                              {directions && <DirectionsRenderer directions={directions} />}
+                        >
+                          {directions && <DirectionsRenderer directions={directions} />}
                         </GoogleMap>
-                          ) : loadError ? (
-                            <div className="h-full flex items-center justify-center text-red-500">
-                              Harita yüklenirken bir hata oluştu: {loadError.message}
-                            </div>
+                      ) : loadError ? (
+                        <div className="h-full flex items-center justify-center text-red-500">
+                          Harita yüklenirken bir hata oluştu: {loadError.message}
+                        </div>
                       ) : (
-                            <div className="h-full flex items-center justify-center">
-                              <FaSpinner className="animate-spin h-8 w-8 text-blue-500" />
+                        <div className="h-full flex items-center justify-center">
+                          <FaSpinner className="animate-spin h-8 w-8 text-blue-500" />
                         </div>
                       )}
                     </div>
                   </div>
-                    )}
-                    
-                    {showRequestDetailModal.notes && (
-                      <div className="mt-6">
-                        <h4 className="text-md font-medium text-gray-700 mb-2">Notlar</h4>
-                        <div className="bg-gray-50 p-4 rounded-md">
-                          <p className="text-sm text-gray-700">{showRequestDetailModal.notes}</p>
-                    </div>
-                  </div>
-                    )}
-                </div>
                 </div>
               </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+              
+              {/* Modal Footer */}
+              <div className="bg-gray-50 px-6 py-3 sm:px-6 sm:flex sm:flex-row gap-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => handleSendSMS(showRequestDetailModal)}
+                  className="w-full inline-flex justify-center items-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:w-auto"
+                >
+                  <FaSms className="mr-2" /> SMS Gönder
+                </button>
+                
                 <button
                   type="button"
                   onClick={() => setShowRequestDetailModal(null)}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  className="mt-3 w-full inline-flex justify-center items-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:w-auto"
                 >
-                  Kapat
+                  <FaTimes className="mr-2" /> Kapat
                 </button>
               </div>
             </div>
@@ -828,7 +912,7 @@ export default function RequestsPage() {
                           <div className="ml-3">
                             <h3 className="text-sm font-medium text-green-800">SMS başarıyla gönderildi</h3>
                             <div className="mt-2 text-sm text-green-700">
-                              <p>SMS, {showConfirmSmsModal.phone} numarasına gönderildi.</p>
+                              <p>SMS, {showConfirmSmsModal.customerPhone} numarasına gönderildi.</p>
                             </div>
                           </div>
                         </div>
@@ -845,12 +929,12 @@ export default function RequestsPage() {
                           <div className="flex items-center mb-2">
                             <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
                               <span className="text-gray-500 font-medium">
-                                {showConfirmSmsModal.name ? showConfirmSmsModal.name.charAt(0).toUpperCase() : 'M'}
+                                {showConfirmSmsModal.customerName ? showConfirmSmsModal.customerName.charAt(0).toUpperCase() : 'M'}
                               </span>
                             </div>
                             <div className="ml-3">
-                              <div className="text-sm font-medium text-gray-900">{showConfirmSmsModal.name}</div>
-                              <div className="text-sm text-gray-500">{showConfirmSmsModal.phone}</div>
+                              <div className="text-sm font-medium text-gray-900">{showConfirmSmsModal.customerName}</div>
+                              <div className="text-sm text-gray-500">{showConfirmSmsModal.customerPhone}</div>
                             </div>
                   </div>
 
@@ -874,7 +958,7 @@ export default function RequestsPage() {
                             id="sms-message"
                             rows="3"
                             className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                            defaultValue={`Sayın ${showConfirmSmsModal.name}, taşıma talebiniz ${showConfirmSmsModal.status === 'approved' ? 'onaylandı' : 'reddedildi'}. Detaylar için web sitemizi ziyaret edebilirsiniz.`}
+                            defaultValue={`Sayın ${showConfirmSmsModal.customerName}, taşıma talebiniz ${showConfirmSmsModal.status === 'approved' ? 'onaylandı' : 'reddedildi'}. Detaylar için web sitemizi ziyaret edebilirsiniz.`}
                           ></textarea>
                         </div>
                       </>
