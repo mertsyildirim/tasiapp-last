@@ -11,6 +11,7 @@ import {
   FaInbox, FaMapMarkerAlt, FaCheckCircle, FaExclamationCircle,
   FaMapMarked, FaLock, FaLockOpen, FaToggleOn, FaToggleOff
 } from 'react-icons/fa';
+import { sendUserLocation } from '../../lib/geolocation';
 
 export default function FreelanceLayout({ children, title = 'Freelance Portal' }) {
   const router = useRouter();
@@ -320,35 +321,6 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
     { name: 'Ayarlar', href: '/portal/freelance/settings', icon: FaTools },
   ];
 
-  // Konum paylaşımını aç/kapat
-  const toggleLocationSharing = () => {
-    if (!locationShared) {
-      // Konum izni iste
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            // Başarılı olursa konum paylaşımını etkinleştir
-            setLocationShared(true);
-            // Başarı modalını göster
-            setShowingModal(true);
-            showLocationSuccessModal();
-          },
-          (error) => {
-            // Hata durumunda izin modalını göster
-            setShowLocationModal(true);
-          }
-        );
-      } else {
-        // Tarayıcı desteklemiyorsa izin modalını göster
-        setShowLocationModal(true);
-      }
-    } else {
-      // Konum paylaşımını kapatmak istediğinde onay modalı göster
-      setShowingModal(true);
-      showLocationSuccessModal();
-    }
-  };
-
   // Konum izni modalını kapat
   const closeLocationModal = () => {
     setModalAnimating(true);
@@ -375,23 +347,145 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
     }, 3000);
   };
 
-  // Konum paylaşımı aç/kapat
+  // Konum paylaşımı aç/kapat (sadece UI için)
+  const toggleLocationSharing = () => {
+    // Paylaşım aktif değilse izin iste
+    if (!locationShared) {
+      setShowLocationModal(true);
+    } else {
+      // Paylaşım aktifse kapat
+      setLocationShared(false);
+      setShowingModal(true);
+      showLocationSuccessModal();
+    }
+  };
+  
+  // Konum izni verip API'ye gönder
   const handleLocationPermission = () => {
+    closeLocationModal();
+    setShowingModal(true);
+    
+    // Debug bilgisi
+    console.log('Konum izni isteniyor...');
+    
     if (navigator.geolocation) {
+      // Konum API'sini çağır
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocationShared(true);
-          closeLocationModal();
-          // Başarı modalını göster
-          setShowingModal(true);
-          showLocationSuccessModal();
+        async (position) => {
+          try {
+            console.log('Konum alındı:', position.coords);
+            
+            // API'ye konum bilgisini gönder
+            const userId = session?.user?.id || session?.user?.userId;
+            
+            // Debug bilgisi
+            console.log('Kullanıcı ID:', userId);
+            
+            if (!userId) {
+              console.error("Kullanıcı kimliği bulunamadı, konum paylaşılamıyor.");
+              alert("Kullanıcı kimliği bulunamadı. Lütfen yeniden giriş yapın.");
+              setShowingModal(false);
+              return;
+            }
+            
+            // Konum verisini oluştur (direkt API fonksiyonunu kullanmadan)
+            const locationData = {
+              userId,
+              userType: 'freelance',
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              speed: position.coords.speed || null,
+              heading: position.coords.heading || null,
+              timestamp: position.timestamp,
+              isActive: true
+            };
+            
+            console.log('API\'ye gönderilecek konum:', locationData);
+            
+            try {
+              // API'ye gönder
+              console.log('API\'ye istek gönderiliyor:', '/api/locations/update');
+              const response = await fetch('/api/locations/update', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(locationData)
+              });
+              
+              console.log('API yanıt durumu:', response.status);
+              
+              // Yanıt durumunu kontrol et
+              if (!response.ok) {
+                let errorMessage = `HTTP hata! Durum: ${response.status}`;
+                try {
+                  const errorData = await response.json();
+                  errorMessage = errorData.message || errorMessage;
+                } catch (e) {
+                  console.error('Hata yanıtı JSON değil:', e);
+                  const errorText = await response.text();
+                  if (errorText) errorMessage += ` - ${errorText}`;
+                }
+                throw new Error(errorMessage);
+              }
+              
+              // Yanıtı JSON olarak çözümle
+              let data;
+              try {
+                data = await response.json();
+                console.log('API yanıtı:', data);
+              } catch (jsonError) {
+                console.error('API yanıtı JSON formatında değil:', jsonError);
+                const textResponse = await response.text();
+                console.log('API yanıt metni:', textResponse);
+                throw new Error('API yanıtı geçerli bir JSON formatında değil');
+              }
+              
+              // Başarı durumunu kontrol et
+              if (!data.success) {
+                throw new Error(data.message || 'Konum güncellemesi başarısız oldu');
+              }
+              
+              // Konum paylaşımını etkinleştir
+              setLocationShared(true);
+              
+              // Başarı modalını göster
+              showLocationSuccessModal();
+            } catch (apiError) {
+              console.error("API hatası:", apiError);
+              alert(`API hatası: ${apiError.message}`);
+              setShowingModal(false);
+            }
+          } catch (error) {
+            console.error("Konum paylaşma hatası:", error);
+            alert(`Konum paylaşılırken bir hata oluştu: ${error.message}`);
+            setShowingModal(false);
+          }
         },
         (error) => {
-          // Konum izni reddedildiğinde
-          setLocationShared(false);
-          closeLocationModal();
+          // Hata durumunda detaylı bilgi
+          const errorMessages = {
+            1: "Konum izni reddedildi. Lütfen tarayıcı ayarlarınızdan izin verin.",
+            2: "Konum bilgisi alınamıyor. Lütfen GPS'inizi kontrol edin.",
+            3: "Konum alımı zaman aşımına uğradı."
+          };
+          
+          const errorMessage = errorMessages[error.code] || "Bilinmeyen konum hatası.";
+          console.error("Konum hatası:", errorMessage, error);
+          alert(errorMessage);
+          
+          setShowingModal(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0
         }
       );
+    } else {
+      alert("Tarayıcınız konum servislerini desteklemiyor.");
+      setShowingModal(false);
     }
   };
 
@@ -408,6 +502,34 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
         <title>{title ? `${title} | Taşı Portal` : 'Taşı Portal'}</title>
         <meta name="description" content="Taşı Portal - Freelance Taşıyıcı Paneli" />
         <link rel="icon" href="/favicon.ico" />
+        <style jsx global>{`
+          .animate-fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+          }
+          .animate-fade-out {
+            animation: fadeOut 0.3s ease-in-out;
+          }
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+              transform: scale(0.95);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+          @keyframes fadeOut {
+            from {
+              opacity: 1;
+              transform: scale(1);
+            }
+            to {
+              opacity: 0;
+              transform: scale(0.95);
+            }
+          }
+        `}</style>
       </Head>
 
       <div className="flex h-screen bg-gray-50">
@@ -699,103 +821,66 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
 
       {/* Konum İzni Modal */}
       {showLocationModal && (
-        <div className="fixed z-50 inset-0 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className={`absolute inset-0 bg-gray-500 ${modalAnimating ? 'opacity-0' : 'opacity-75'} transition-opacity duration-300`}></div>
+        <div className={`fixed inset-0 flex items-center justify-center z-50 ${modalAnimating ? 'animate-fade-out' : 'animate-fade-in'}`}>
+          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={closeLocationModal}></div>
+          <div className="bg-white rounded-lg p-6 shadow-xl w-11/12 max-w-md relative z-10 transform transition-all">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-medium text-gray-900">
+                Konum İzni Gerekli
+              </h3>
+              <button 
+                className="text-gray-400 hover:text-gray-500"
+                onClick={closeLocationModal}
+              >
+                <FaTimes className="h-5 w-5" />
+              </button>
             </div>
-            
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
-            <div className={`inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6 ${modalAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'} transition-all duration-300`}>
-              <div>
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-orange-100">
-                  <FaMapMarked className="h-6 w-6 text-orange-600" />
-                </div>
-                <div className="mt-3 text-center sm:mt-5">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    Konum İzni Gerekiyor
-                  </h3>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-500">
-                      TaşıApp&apos;in konumunuzu kullanmasına izin vererek müşterilerin sizi daha kolay bulmasını sağlayabilirsiniz. 
-                      Ayrıca konum paylaşımı, taşıma taleplerini daha doğru bir şekilde alabilmenizi sağlar.
-                    </p>
-                  </div>
+            <div className="my-4">
+              <div className="flex items-center justify-center mb-4">
+                <div className="bg-red-100 p-3 rounded-full">
+                  <FaMapMarkerAlt className="h-8 w-8 text-red-500" />
                 </div>
               </div>
-              
-              <div className="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-                <button
-                  type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-orange-600 text-base font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 sm:col-start-2 sm:text-sm"
-                  onClick={handleLocationPermission}
-                >
-                  <FaLockOpen className="mr-2 h-5 w-5" />
-                  İzin Ver
-                </button>
-                <button
-                  type="button"
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 sm:mt-0 sm:col-start-1 sm:text-sm"
-                  onClick={closeLocationModal}
-                >
-                  <FaLock className="mr-2 h-5 w-5" />
-                  Şimdi Değil
-                </button>
-              </div>
+              <p className="text-sm text-gray-500 mb-4 text-center">
+                Konumunuzu paylaşabilmemiz için tarayıcı izinlerine ihtiyacımız var. 
+                Bu izin, konumunuzun müşterilerimizle ve sistemimizle paylaşılmasını sağlar.
+              </p>
+              <p className="text-xs text-gray-400 mb-4 text-center">
+                Konumunuz sadece aktif olduğunuz sürece paylaşılır ve gizliliğiniz korunur.
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <button
+                type="button"
+                className="inline-flex justify-center w-full sm:w-auto px-6 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                onClick={handleLocationPermission}
+              >
+                Konum İzni Ver
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Konum Paylaşım Bilgi Modalı */}
-      {showingModal && (
-        <div className="fixed z-50 inset-0 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className={`absolute inset-0 bg-gray-500 ${modalAnimating ? 'opacity-0' : 'opacity-75'} transition-opacity duration-300`}></div>
+      {/* Konum Başarılı Modal */}
+      {showingModal && !showLocationModal && (
+        <div className={`fixed inset-0 flex items-center justify-center z-50 ${modalAnimating ? 'animate-fade-out' : 'animate-fade-in'}`}>
+          <div className="absolute inset-0 bg-black bg-opacity-25"></div>
+          <div className="bg-white rounded-lg p-6 shadow-xl w-11/12 max-w-sm relative z-10 transform transition-all">
+            <div className="flex justify-center my-4">
+              <div className="bg-green-100 p-3 rounded-full">
+                <FaCheckCircle className="h-8 w-8 text-green-500" />
+              </div>
             </div>
-            
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            
-            <div className={`inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6 ${modalAnimating ? 'opacity-0 scale-95' : 'opacity-100 scale-100'} transition-all duration-300`}>
-              <div>
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                  {locationShared ? (
-                    <FaCheckCircle className="h-6 w-6 text-green-600 animate-pulse" />
-                  ) : (
-                    <FaExclamationCircle className="h-6 w-6 text-red-600 animate-pulse" />
-                  )}
-                </div>
-                <div className="mt-3 text-center sm:mt-5">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    {locationShared ? 'Konumunuz Paylaşılıyor' : 'Konum Paylaşımı Durduruldu'}
-                  </h3>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-500">
-                      {locationShared 
-                        ? "Şu anda konumunuz müşteriler ve yöneticilerle paylaşılıyor. Bu, taşıma taleplerini daha kolay almanızı sağlar." 
-                        : "Konum paylaşımınız durduruldu. Taşıma talepleri alabilirsiniz ancak müşteriler sizi haritada göremeyecek."}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-5 sm:mt-6">
-                <button
-                  type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-orange-600 text-base font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 sm:text-sm"
-                  onClick={() => {
-                    setModalAnimating(true);
-                    setTimeout(() => {
-                      setShowingModal(false);
-                      setModalAnimating(false);
-                    }, 300);
-                  }}
-                >
-                  Anladım
-                </button>
-              </div>
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {locationShared ? 'Konum Paylaşımı Aktif' : 'Konum Paylaşımı Devre Dışı'}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {locationShared 
+                  ? 'Konumunuz başarıyla sistemimizle paylaşıldı. Artık müşteriler sizi haritada görebilecek.'
+                  : 'Konum paylaşımı durduruldu. Artık müşteriler sizi haritada göremeyecek.'}
+              </p>
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { startTracking, stopTracking, isTrackingActive, getCurrentPosition, isGoogleMapsLoaded, getPlatformInfo, logLocationError } from '@/lib/geolocation';
+import { startTracking, stopTracking, isTrackingActive, getCurrentPosition, isGoogleMapsLoaded, getPlatformInfo, logLocationError } from '../lib/geolocation';
 import { FaMapMarkerAlt, FaToggleOn, FaToggleOff, FaCheckCircle, FaExclamationTriangle, FaSpinner, FaGoogle, FaMobileAlt, FaLaptop } from 'react-icons/fa';
 
 /**

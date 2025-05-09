@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { FaPlus, FaSearch, FaEdit, FaTrash, FaMapMarkerAlt, FaPhone, FaEnvelope, FaTruck, FaSpinner, FaChevronLeft, FaChevronRight, FaChevronDown, FaIdCard, FaCheck, FaUser } from 'react-icons/fa'
+import { FaPlus, FaSearch, FaEdit, FaTrash, FaMapMarkerAlt, FaPhone, FaEnvelope, FaTruck, FaSpinner, FaChevronLeft, FaChevronRight, FaChevronDown, FaIdCard, FaCheck, FaUser, FaExclamationCircle } from 'react-icons/fa'
 import AdminLayout from '../../components/admin/Layout'
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api'
 import { useRouter } from 'next/router'
@@ -25,6 +25,7 @@ export default function ActiveDriversPage() {
   const [onDeliveryCount, setOnDeliveryCount] = useState(0)
   const [map, setMap] = useState(null)
   const [driverMarkers, setDriverMarkers] = useState([])
+  const [freelancerMarkers, setFreelancerMarkers] = useState([])
   const [selectedTab, setSelectedTab] = useState('all')
   const [showDriverDetailModal, setShowDriverDetailModal] = useState(null)
 
@@ -56,10 +57,54 @@ export default function ActiveDriversPage() {
     setMap(null)
   }, [])
 
+  // API'den aktif freelancerları çek
+  useEffect(() => {
+    fetchActiveFreelancers();
+  }, []);
+
   // API'den aktif sürücüleri çek
   useEffect(() => {
     fetchDrivers();
   }, [currentPage, searchTerm, selectedTab]);
+
+  // Aktif freelancer konumlarını getir
+  const fetchActiveFreelancers = async () => {
+    try {
+      const response = await fetch('/api/locations/active-freelancers', {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Aktif freelancer konum verileri yüklenemedi');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Freelancer markerlara dönüştür
+        const markers = data.locations.map(loc => {
+          return {
+            position: { lat: loc.latitude, lng: loc.longitude },
+            title: loc.userName || 'Freelancer',
+            id: loc._id,
+            type: 'freelancer',
+            userName: loc.userName || 'İsimsiz Freelancer',
+            phone: loc.phone || 'N/A',
+            email: loc.email || 'N/A'
+          };
+        });
+        
+        setFreelancerMarkers(markers);
+        console.log(`${markers.length} freelancer konumu yüklendi`);
+      } else {
+        console.error('Freelancer verileri yüklenirken bir hata oluştu:', data.message);
+      }
+    } catch (error) {
+      console.error('Freelancer konum verisi yükleme hatası:', error);
+    }
+  };
 
   const fetchDrivers = async () => {
     try {
@@ -389,12 +434,29 @@ export default function ActiveDriversPage() {
               </div>
             </div>
           </div>
+          
+          <div className="bg-white rounded-lg shadow p-4 flex-1">
+            <div className="flex items-center">
+              <div className="bg-yellow-100 p-3 rounded-full mr-4">
+                <FaUser className="text-yellow-600" />
+              </div>
+              <div>
+                <h3 className="text-gray-500 text-sm">Aktif Freelancer</h3>
+                <p className="text-2xl font-bold">{freelancerMarkers.length}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Sürücü Haritası */}
         <div className="bg-white rounded-lg shadow mb-8">
           <div className="p-4 border-b border-gray-200">
-            <h3 className="font-semibold">Sürücü Konumları</h3>
+            <h3 className="font-semibold">Sürücü ve Freelancer Konumları</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              <span className="inline-block w-3 h-3 rounded-full bg-green-500 mr-1"></span> Aktif Sürücü, 
+              <span className="inline-block w-3 h-3 rounded-full bg-purple-500 mx-1"></span> Taşımada, 
+              <span className="inline-block w-0 h-0 border-l-[6px] border-r-[6px] border-b-[10px] border-l-transparent border-r-transparent border-b-orange-500 mx-1"></span> Freelancer
+            </p>
           </div>
           {loadError && (
             <div className="h-64 bg-gray-100 p-4 flex items-center justify-center">
@@ -426,15 +488,16 @@ export default function ActiveDriversPage() {
                   mapTypeControl: false,
                   streetViewControl: false,
                   fullscreenControl: false,
-                  draggable: driverMarkers.length > 0,
-                  scrollwheel: driverMarkers.length > 0,
-                  disableDoubleClickZoom: driverMarkers.length === 0,
-                  gestureHandling: driverMarkers.length > 0 ? 'auto' : 'none'
+                  draggable: driverMarkers.length > 0 || freelancerMarkers.length > 0,
+                  scrollwheel: driverMarkers.length > 0 || freelancerMarkers.length > 0,
+                  disableDoubleClickZoom: driverMarkers.length === 0 && freelancerMarkers.length === 0,
+                  gestureHandling: driverMarkers.length > 0 || freelancerMarkers.length > 0 ? 'auto' : 'none'
                 }}
               >
+                {/* Sürücülerin konumları */}
                 {driverMarkers.map((marker) => (
                   <Marker
-                    key={marker.id}
+                    key={`driver-${marker.id}`}
                     position={marker.position}
                     title={marker.title}
                     icon={{
@@ -451,14 +514,32 @@ export default function ActiveDriversPage() {
                     }}
                   />
                 ))}
+                
+                {/* Freelancer'ların konumları */}
+                {freelancerMarkers.map((marker) => (
+                  <Marker
+                    key={`freelancer-${marker.id}`}
+                    position={marker.position}
+                    title={marker.title}
+                    icon={{
+                      path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                      scale: 8,
+                      fillColor: '#F59E0B', // turuncu - freelancer
+                      fillOpacity: 0.9,
+                      strokeColor: '#FFFFFF',
+                      strokeWeight: 2,
+                      rotation: 0
+                    }}
+                  />
+                ))}
               </GoogleMap>
             </div>
           )}
-          {driverMarkers.length === 0 && isLoaded && !loadError && (
+          {driverMarkers.length === 0 && freelancerMarkers.length === 0 && isLoaded && !loadError && (
             <div className="h-48 flex items-center justify-center bg-gray-50">
               <div className="text-center text-gray-500">
                 <FaMapMarkerAlt className="mx-auto mb-2 text-orange-500 h-8 w-8" />
-                <p>Haritada gösterilecek sürücü konumu bulunamadı.</p>
+                <p>Haritada gösterilecek konum bulunamadı.</p>
                 <p className="text-sm text-gray-400 mt-1">Harita etkileşimi devre dışı bırakıldı.</p>
               </div>
             </div>
