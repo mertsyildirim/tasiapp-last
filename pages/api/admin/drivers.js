@@ -67,6 +67,7 @@ export default async function handler(req, res) {
             });
           }
 
+          // Önce normal sürücüleri al
           const total = await db.collection('drivers').countDocuments(filter);
           console.log('Total drivers found:', total);
 
@@ -93,15 +94,58 @@ export default async function handler(req, res) {
             activeShipments: driver.activeShipments || 0,
             completedShipments: driver.completedShipments || 0,
             createdAt: driver.createdAt,
-            updatedAt: driver.updatedAt
+            updatedAt: driver.updatedAt,
+            isFreelance: false
           }));
+          
+          // Freelance kullanıcıları da getir (companies koleksiyonundan isFreelance=true olanlar)
+          const freelanceFilter = { isFreelance: true };
+          if (search) {
+            freelanceFilter.$or = [
+              { companyName: { $regex: search, $options: 'i' } },
+              { email: { $regex: search, $options: 'i' } },
+              { phoneNumber: { $regex: search, $options: 'i' } },
+              { contactPerson: { $regex: search, $options: 'i' } }
+            ];
+          }
+          
+          const freelancers = await db.collection('companies')
+            .find(freelanceFilter)
+            .toArray();
+            
+          console.log('Total freelancers found:', freelancers.length);
+          
+          // Freelance kullanıcıları sürücü formatına dönüştür
+          const formattedFreelancers = freelancers.map(freelancer => ({
+            _id: `f_${freelancer._id.toString()}`,  // ID çakışmasını önlemek için f_ prefixi ekle
+            name: freelancer.contactPerson || '',
+            email: freelancer.email || '',
+            phone: freelancer.phoneNumber || '',
+            company: freelancer.companyName || '',
+            status: 'active',
+            licenseType: 'Freelance',
+            licenseExpiry: '',
+            experience: '',
+            notes: 'Freelance çalışan',
+            documents: [],
+            activeShipments: 0,
+            completedShipments: 0,
+            createdAt: freelancer.createdAt,
+            updatedAt: freelancer.updatedAt,
+            isFreelance: true,
+            originalId: freelancer._id.toString()
+          }));
+          
+          // İki listeyi birleştir
+          const allDrivers = [...formattedDrivers, ...formattedFreelancers];
+          const totalCombined = total + freelancers.length;
 
           return res.status(200).json({
             success: true,
-            drivers: formattedDrivers,
-            total,
+            drivers: allDrivers,
+            total: totalCombined,
             currentPage: parseInt(page),
-            totalPages: Math.ceil(total / parseInt(limit))
+            totalPages: Math.ceil(totalCombined / parseInt(limit))
           });
         } catch (error) {
           console.error('Sürücüleri getirme hatası:', error);

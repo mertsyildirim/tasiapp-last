@@ -134,9 +134,12 @@ export default function DriversPage() {
     
     // Taşıyıcı (firma) adını bul
     let companyName = "";
-    if (driver.company) {
+    if (driver.company && !driver.isFreelance) {
       const selectedCompany = companies.find(c => c._id === driver.company);
       companyName = selectedCompany ? selectedCompany.companyName : driver.company;
+    } else if (driver.isFreelance) {
+      // Freelance kullanıcıları için şirket adı direkt olarak geliyor
+      companyName = driver.company;
     }
     
     return {
@@ -145,7 +148,7 @@ export default function DriversPage() {
       email: driver.email || '',
       phone: driver.phone || '',
       company: driver.company || '',
-      companyName: companyName, // Şirket adını ekle
+      companyName: companyName,
       status: driver.status || 'active',
       address: driver.address || '',
       joinDate: driver.createdAt ? new Date(driver.createdAt).toLocaleDateString('tr-TR') : '',
@@ -158,7 +161,9 @@ export default function DriversPage() {
       missingDocuments: documentStatus.missingDocuments,
       activeShipments: driver.activeShipments || 0,
       completedShipments: driver.completedShipments || 0,
-      successRate: driver.successRate || 0
+      successRate: driver.successRate || 0,
+      isFreelance: driver.isFreelance || false,
+      originalId: driver.originalId || ''
     };
   };
 
@@ -569,241 +574,203 @@ export default function DriversPage() {
   };
 
   return (
-    <AdminLayout title="Sürücü Yönetimi" isBlurred={showDriverDetailModal || showDeleteConfirm || showDriverDocumentsModal || showAddDriverModal || showEditDriverModal}>
-      <div className={showDriverDetailModal || showDeleteConfirm || showDriverDocumentsModal || showAddDriverModal || showEditDriverModal ? "blur-sm" : ""}>
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <div className="flex space-x-2 flex-wrap">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setSelectedTab(tab.id)}
-                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  selectedTab === tab.id 
-                    ? 'bg-orange-100 text-orange-800' 
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
-                } mb-2`}
+    <AdminLayout title="Sürücüler">
+      <div className="container mx-auto px-4 py-6">
+        <div className={showDriverDetailModal || showDriverDocumentsModal || showAddDriverModal || showEditDriverModal || showDeleteConfirm ? "blur-sm" : ""}>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <div className="w-full">
+              <div className="flex space-x-2 flex-wrap mb-4">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSelectedTab(tab.id)}
+                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                      selectedTab === tab.id
+                        ? 'bg-orange-100 text-orange-800'
+                        : 'bg-white text-gray-700 hover:bg-gray-100'
+                    } mb-2`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              <form onSubmit={(e) => { e.preventDefault(); fetchDrivers(); }} className="flex flex-col md:flex-row gap-2">
+                <div className="relative w-full md:w-auto">
+                  <input
+                    type="text"
+                    placeholder="Sürücü ara... (İsim, email, telefon, şirket)"
+                    className="pl-10 pr-4 py-2 w-full md:min-w-[350px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                </div>
+                <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Ara</button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddDriverModal(true)}
+                  className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2"
+                >
+                  <FaPlus className="text-sm" />
+                  <span>Yeni Sürücü</span>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <div className="animate-spin inline-block w-8 h-8 border-4 border-current border-t-transparent text-orange-600 rounded-full" role="status" aria-label="loading">
+                <span className="sr-only">Yükleniyor...</span>
+              </div>
+              <p className="mt-4 text-gray-600">Sürücü verileri yükleniyor...</p>
+            </div>
+          ) : error ? (
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <FaExclamationCircle className="text-red-600 text-4xl mx-auto mb-4" />
+              <p className="text-red-600 font-medium mb-2">Hata Oluştu</p>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <button 
+                className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700"
+                onClick={fetchDrivers}
               >
-                {tab.name}
+                Tekrar Dene
               </button>
-            ))}
-          </div>
-          <div className="flex flex-col w-full md:flex-row md:w-auto gap-4">
-            <div className="relative w-full md:w-auto">
-              <input 
-                type="text" 
-                placeholder="Sürücü ara..." 
-                className="pl-10 pr-4 py-2 w-full md:min-w-[250px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
             </div>
-            <button 
-              className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center space-x-1"
-              onClick={() => setShowAddDriverModal(true)}
-            >
-              <FaPlus className="mr-2" />
-              <span>Yeni Sürücü</span>
-            </button>
-          </div>
-        </div>
-
-        {/* İstatistik Kartları */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Toplam Sürücü */}
-          <div 
-            className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Toplam Sürücü</p>
-                <p className="text-2xl font-semibold text-gray-900">{allDrivers.length}</p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-full">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
+          ) : drivers.length === 0 ? (
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <FaTruck className="text-gray-400 text-4xl mx-auto mb-4" />
+              <p className="text-lg font-medium text-gray-900 mb-2">Sürücü bulunamadı</p>
+              <p className="text-gray-600 mb-6">Aradığınız kriterlere uygun sürücü bulunamadı.</p>
+              <button
+                className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 flex items-center gap-2 mx-auto"
+                onClick={() => setShowAddDriverModal(true)}
+              >
+                <FaPlus />
+                <span>Yeni Sürücü Ekle</span>
+              </button>
             </div>
-          </div>
-
-          {/* Aktif Sürücüler */}
-          <div 
-            className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Aktif Sürücüler</p>
-                <p className="text-2xl font-semibold text-green-600">{allDrivers.filter(d => d.status === 'active' && !d.hasExpiredDocuments).length}</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-full">
-                <FaIdCard className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          {/* Pasif Sürücüler */}
-          <div 
-            className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pasif Sürücüler</p>
-                <p className="text-2xl font-semibold text-red-600">{allDrivers.filter(d => d.status === 'passive').length}</p>
-              </div>
-              <div className="p-3 bg-red-100 rounded-full">
-                <FaIdCard className="h-6 w-6 text-red-600" />
-              </div>
-            </div>
-          </div>
-
-          {/* Belgesi Eksik */}
-          <div 
-            className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Süresi Geçmiş Belge</p>
-                <p className="text-2xl font-semibold text-yellow-600">{allDrivers.filter(d => d.hasExpiredDocuments).length}</p>
-              </div>
-              <div className="p-3 bg-yellow-100 rounded-full">
-                <FaExclamationCircle className="h-6 w-6 text-yellow-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Hata Mesajı */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 mb-8">
-            <div className="flex items-center">
-              <FaExclamationCircle className="mr-2" />
-              <p>{error}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Yükleniyor */}
-        {loading && (
-          <div className="bg-white rounded-lg shadow p-8 mb-8 flex justify-center items-center">
-            <FaSpinner className="text-orange-600 text-2xl animate-spin mr-3" />
-            <p className="text-gray-700">Sürücüler yükleniyor...</p>
-          </div>
-        )}
-
-        {/* Sürücü Tablosu */}
-        {!loading && !error && (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sürücü Bilgileri</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İletişim</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ehliyet Bilgileri</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taşıma</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredDrivers.map((driver) => (
-                    <tr key={driver.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-bold">
-                            {driver.name.charAt(0)}
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{driver.name}</div>
-                            <div className="text-sm text-gray-500">{driver.companyName}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{driver.phone}</div>
-                        <div className="text-sm text-gray-500">{driver.email}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">Sınıf: {driver.licenseType || '-'}</div>
-                        <div className="text-sm text-gray-500">
-                          {driver.licenseExpiry ? (
-                            <>Son Geçerlilik: {driver.licenseExpiry}</>
-                          ) : (
-                            '-'
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(driver.status)}`}>
-                          {getStatusText(driver.status)}
-                        </span>
-                        {driver.hasExpiredDocuments && (
-                          <div className="mt-1">
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                              Süresi Dolmuş Belge
+          ) : (
+            <>
+              <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sürücü</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İletişim</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Şirket</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Belgeler</th>
+                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {drivers.map(driver => (
+                        <tr key={driver._id} className={`hover:bg-gray-50 ${driver.isFreelance ? 'bg-orange-50' : ''}`}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10">
+                                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                                  <span className="text-orange-600 font-medium">
+                                    {driver.name.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {driver.name}
+                                  {driver.isFreelance && (
+                                    <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-orange-100 text-orange-800">
+                                      Freelance
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {driver.licenseType || 'Lisans bilgisi yok'}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{driver.phone}</div>
+                            <div className="text-sm text-gray-500">{driver.email}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{driver.companyName}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(driver.status)}`}>
+                              {getStatusText(driver.status)}
                             </span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex flex-col">
-                          <span>{driver.activeShipments || 0} Aktif</span>
-                          <span className="text-gray-400">{driver.completedShipments || 0} Tamamlanan</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex space-x-2">
-                          <button 
-                            className="text-blue-600 hover:text-blue-900 transition-colors" 
-                            onClick={() => setShowDriverDetailModal(driver)}
-                            title="Detaylar"
-                          >
-                            <FaEye className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {filteredDrivers.length === 0 && !loading && (
-              <div className="px-6 py-8 text-center">
-                <p className="text-gray-500">Kriterlere uygun sürücü bulunamadı.</p>
-              </div>
-            )}
-            <div className="bg-white px-6 py-4 border-t border-gray-200">
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-gray-500">
-                  Toplam <span className="font-medium text-gray-900">{filteredDrivers.length}</span> sürücü bulundu
-                </p>
-                
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="inline-flex items-center justify-center w-8 h-8 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <FaChevronLeft className="w-4 h-4" />
-                  </button>
-                  
-                  <span className="text-sm text-gray-700">
-                    <span className="font-medium">{currentPage}</span> / <span className="font-medium">{totalPages}</span>
-                  </span>
-                  
-                  <button 
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="inline-flex items-center justify-center w-8 h-8 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <FaChevronRight className="w-4 h-4" />
-                  </button>
+                            {driver.hasExpiredDocuments && (
+                              <div className="mt-1">
+                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                  Süresi Dolmuş Belge
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex flex-col">
+                              <span>{driver.activeShipments || 0} Aktif</span>
+                              <span className="text-gray-400">{driver.completedShipments || 0} Tamamlanan</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex space-x-2">
+                              <button 
+                                className="text-blue-600 hover:text-blue-900 transition-colors" 
+                                onClick={() => setShowDriverDetailModal(driver)}
+                                title="Detaylar"
+                              >
+                                <FaEye className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {filteredDrivers.length === 0 && !loading && (
+                  <div className="px-6 py-8 text-center">
+                    <p className="text-gray-500">Kriterlere uygun sürücü bulunamadı.</p>
+                  </div>
+                )}
+                <div className="bg-white px-6 py-4 border-t border-gray-200">
+                  <div className="flex justify-between items-center">
+                    <p className="text-sm text-gray-500">
+                      Toplam <span className="font-medium text-gray-900">{filteredDrivers.length}</span> sürücü bulundu
+                    </p>
+                    
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="inline-flex items-center justify-center w-8 h-8 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <FaChevronLeft className="w-4 h-4" />
+                      </button>
+                      
+                      <span className="text-sm text-gray-700">
+                        <span className="font-medium">{currentPage}</span> / <span className="font-medium">{totalPages}</span>
+                      </span>
+                      
+                      <button 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="inline-flex items-center justify-center w-8 h-8 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <FaChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Sürücü Detay Modalı */}

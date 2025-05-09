@@ -161,15 +161,21 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    // Önce localStorage'dan durumu al (sayfa yenileme için)
-    const savedOnlineStatus = localStorage.getItem('freelanceIsOnline');
-    
     // Oturum yoksa çevrimiçi durumunu değiştirmiyoruz
     if (status === 'loading') return;
     
     if (!session) {
       setIsOnline(false);
       return;
+    }
+    
+    // LocalStorage'dan durumları al (sayfa yenileme için)
+    const savedOnlineStatus = localStorage.getItem('freelanceIsOnline');
+    const savedLocationShared = localStorage.getItem('freelanceLocationShared');
+    
+    // Kaydedilmiş konum paylaşımı durumunu ayarla
+    if (savedLocationShared === 'true') {
+      setLocationShared(true);
     }
     
     const fetchUserOnlineStatus = async () => {
@@ -183,7 +189,8 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
         if (!response.ok) {
           if (response.status === 401) {
             console.warn('Durum bilgisi alımı için oturum gerekiyor.');
-            setIsOnline(false);
+            // LocalStorage'dan alınan değeri kullan
+            setIsOnline(savedOnlineStatus === 'true');
             return;
           }
           
@@ -195,13 +202,20 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
         // Oturumsuz kullanım için API düzgün yanıt verdi mi?
         if (data.message && data.message.includes('Oturum açılmadığı için')) {
           console.log('Bilgi:', data.message);
-          setIsOnline(data.isOnline); // API'nin döndürdüğü durumu kullan (muhtemelen false)
+          // LocalStorage'dan alınan değeri kullan
+          setIsOnline(savedOnlineStatus === 'true');
           return;
         }
         
         if (data.success) {
           // API'den gelen durumu state'e ayarla
-          setIsOnline(data.isOnline);
+          // Eğer LocalStorage'da true varsa, o değeri tercih et
+          // Bu sayede kullanıcı manuel kapatana kadar çevrimiçi kalır
+          if (savedOnlineStatus === 'true') {
+            setIsOnline(true);
+          } else {
+            setIsOnline(data.isOnline);
+          }
           console.log('Kullanıcı durumu API\'den alındı:', data.isOnline ? 'çevrimiçi' : 'çevrimdışı');
         } else {
           // API başarısız olursa localStorage değerini kullan
@@ -355,6 +369,8 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
     } else {
       // Paylaşım aktifse kapat
       setLocationShared(false);
+      // LocalStorage'dan konum paylaşımını kaldır
+      localStorage.removeItem('freelanceLocationShared');
       setShowingModal(true);
       showLocationSuccessModal();
     }
@@ -449,6 +465,9 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
               
               // Konum paylaşımını etkinleştir
               setLocationShared(true);
+              
+              // LocalStorage'a konum paylaşımını kaydet
+              localStorage.setItem('freelanceLocationShared', 'true');
               
               // Başarı modalını göster
               showLocationSuccessModal();

@@ -28,6 +28,7 @@ export default function ActiveDriversPage() {
   const [freelancerMarkers, setFreelancerMarkers] = useState([])
   const [selectedTab, setSelectedTab] = useState('all')
   const [showDriverDetailModal, setShowDriverDetailModal] = useState(null)
+  const [selectedLocation, setSelectedLocation] = useState(null)
 
   // Google Maps yükleme
   const { isLoaded, loadError } = useJsApiLoader({
@@ -56,6 +57,24 @@ export default function ActiveDriversPage() {
   const onUnmount = React.useCallback(function callback() {
     setMap(null)
   }, [])
+
+  // Belirli bir konuma zoom yapma
+  const zoomToLocation = (position) => {
+    if (map && position) {
+      // Konum objesini ayarla
+      setSelectedLocation(position);
+      
+      // Haritayı o konuma yakınlaştır
+      map.panTo(position);
+      map.setZoom(15); // Yakınlaştırma seviyesi
+      
+      // Harita alanına scroll
+      const mapElement = document.getElementById('driver-map');
+      if (mapElement) {
+        mapElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  };
 
   // API'den aktif freelancerları çek
   useEffect(() => {
@@ -91,8 +110,10 @@ export default function ActiveDriversPage() {
             id: loc._id,
             type: 'freelancer',
             userName: loc.userName || 'İsimsiz Freelancer',
+            contactPerson: loc.contactPerson || '',
             phone: loc.phone || 'N/A',
-            email: loc.email || 'N/A'
+            email: loc.email || 'N/A',
+            userId: loc.userId || ''
           };
         });
         
@@ -453,9 +474,24 @@ export default function ActiveDriversPage() {
           <div className="p-4 border-b border-gray-200">
             <h3 className="font-semibold">Sürücü ve Freelancer Konumları</h3>
             <p className="text-sm text-gray-500 mt-1">
-              <span className="inline-block w-3 h-3 rounded-full bg-green-500 mr-1"></span> Aktif Sürücü, 
-              <span className="inline-block w-3 h-3 rounded-full bg-purple-500 mx-1"></span> Taşımada, 
-              <span className="inline-block w-0 h-0 border-l-[6px] border-r-[6px] border-b-[10px] border-l-transparent border-r-transparent border-b-orange-500 mx-1"></span> Freelancer
+              <span className="inline-flex items-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#10B981" xmlns="http://www.w3.org/2000/svg" className="mr-1">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" stroke="#FFFFFF" strokeWidth="0.5" />
+                </svg>
+                Aktif Sürücü
+              </span>
+              <span className="inline-flex items-center mx-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#8B5CF6" xmlns="http://www.w3.org/2000/svg" className="mr-1">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" stroke="#FFFFFF" strokeWidth="0.5" />
+                </svg>
+                Taşımada
+              </span>
+              <span className="inline-flex items-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#F59E0B" xmlns="http://www.w3.org/2000/svg" className="mr-1">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" stroke="#FFFFFF" strokeWidth="0.5" />
+                </svg>
+                Freelancer
+              </span>
             </p>
           </div>
           {loadError && (
@@ -478,13 +514,14 @@ export default function ActiveDriversPage() {
           {!loadError && isLoaded && (
             <div className="h-96">
               <GoogleMap
+                id="driver-map"
                 mapContainerStyle={containerStyle}
-                center={center}
-                zoom={6}
+                center={selectedLocation || center}
+                zoom={selectedLocation ? 15 : 6}
                 onLoad={onLoad}
                 onUnmount={onUnmount}
                 options={{
-                  zoomControl: false,
+                  zoomControl: true,
                   mapTypeControl: false,
                   streetViewControl: false,
                   fullscreenControl: false,
@@ -501,16 +538,17 @@ export default function ActiveDriversPage() {
                     position={marker.position}
                     title={marker.title}
                     icon={{
-                      path: window.google.maps.SymbolPath.CIRCLE,
-                      scale: 10,
+                      path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
                       fillColor: marker.status === 'active' || marker.status === 'online' 
                         ? '#10B981' // yeşil - aktif
                         : marker.status === 'on_delivery' || marker.status === 'busy'
                           ? '#8B5CF6' // mor - taşıma sırasında
                           : '#9CA3AF', // gri - diğer durumlar
-                      fillOpacity: 0.8,
+                      fillOpacity: 1,
+                      strokeWeight: 1,
                       strokeColor: '#FFFFFF',
-                      strokeWeight: 2,
+                      scale: 2,
+                      anchor: new window.google.maps.Point(12, 22),
                     }}
                   />
                 ))}
@@ -522,13 +560,13 @@ export default function ActiveDriversPage() {
                     position={marker.position}
                     title={marker.title}
                     icon={{
-                      path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                      scale: 8,
+                      path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
                       fillColor: '#F59E0B', // turuncu - freelancer
-                      fillOpacity: 0.9,
+                      fillOpacity: 1,
+                      strokeWeight: 1,
                       strokeColor: '#FFFFFF',
-                      strokeWeight: 2,
-                      rotation: 0
+                      scale: 2,
+                      anchor: new window.google.maps.Point(12, 22),
                     }}
                   />
                 ))}
@@ -562,6 +600,60 @@ export default function ActiveDriversPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
+                {/* Önce Freelancerları Göster */}
+                {freelancerMarkers.map((freelancer) => (
+                  <tr key={`freelancer-${freelancer.id}`} className="hover:bg-gray-50 bg-orange-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold">
+                          {freelancer.contactPerson?.charAt(0) || "F"}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {freelancer.contactPerson || "İsimsiz Kişi"}
+                            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-orange-100 text-orange-800">Freelance</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col space-y-1">
+                        <div className="flex items-center text-sm text-gray-900">
+                          <FaPhone className="mr-2 text-gray-500" /> {freelancer.phone || 'N/A'}
+                        </div>
+                        <div className="flex items-center text-sm text-gray-500">
+                          <FaEnvelope className="mr-2 text-gray-500" /> {freelancer.email || 'N/A'}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">Freelance Taşıyıcı</div>
+                      <div className="text-sm text-gray-500">-</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        Çevrimiçi
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {freelancer.position ? `${freelancer.position.lat.toFixed(6)}, ${freelancer.position.lng.toFixed(6)}` : 'Bilinmiyor'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Şu anda aktif</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex space-x-2">
+                        <button 
+                          className="text-orange-600 hover:text-orange-900 transition-colors" 
+                          title="Takip Et"
+                          onClick={() => zoomToLocation(freelancer.position)}
+                        >
+                          <FaMapMarkerAlt className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {/* Sonra Normal Sürücüleri Göster */}
                 {activeDrivers.map((driver) => (
                   <tr key={driver.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -598,7 +690,24 @@ export default function ActiveDriversPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{driver.lastActive || driver.lastSeen || 'Bilinmiyor'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex space-x-2">
-                        <button className="text-orange-600 hover:text-orange-900 transition-colors" title="Takip Et">
+                        <button 
+                          className="text-orange-600 hover:text-orange-900 transition-colors" 
+                          title="Takip Et"
+                          onClick={() => {
+                            // Konum bilgisini kontrol et
+                            if (typeof driver.location === 'string' && driver.location.includes(',')) {
+                              const locationParts = driver.location.split(',');
+                              if (locationParts.length >= 2) {
+                                const lat = parseFloat(locationParts[0].trim());
+                                const lng = parseFloat(locationParts[1].trim());
+                                
+                                if (!isNaN(lat) && !isNaN(lng)) {
+                                  zoomToLocation({ lat, lng });
+                                }
+                              }
+                            }
+                          }}
+                        >
                           <FaMapMarkerAlt className="w-5 h-5" />
                         </button>
                       </div>
@@ -611,7 +720,8 @@ export default function ActiveDriversPage() {
           <div className="bg-white px-6 py-4 border-t border-gray-200">
             <div className="flex justify-between items-center">
               <p className="text-sm text-gray-500">
-                Toplam <span className="font-medium text-gray-900">{activeDrivers.length}</span> aktif sürücü bulundu
+                Toplam <span className="font-medium text-gray-900">{activeDrivers.length}</span> aktif sürücü ve 
+                <span className="font-medium text-gray-900"> {freelancerMarkers.length}</span> freelancer bulundu
               </p>
               
               <div className="flex items-center gap-2">
