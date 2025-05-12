@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '../auth/[...nextauth]'
-import dbConnect from '@/lib/dbConnect'
-import User from '@/models/User'
+import { authOptions } from '../auth/portal/[...nextauth]'
+import dbConnect from '../../../lib/dbConnect'
+import User from '../../../models/User'
 
 // CORS middleware
 const allowCors = fn => async (req, res) => {
