@@ -6,7 +6,7 @@ import { FaTruck, FaRoute, FaMoneyBillWave, FaUser, FaBell, FaCog, FaSignOutAlt,
 import Link from 'next/link';
 import Image from 'next/image';
 
-export default function DriverLayout({ children, title = 'Sürücü Paneli', driverStatus = 'active' }) {
+export default function DriverLayout({ children, title = 'Sürücü Paneli', defaultDriverStatus = 'active' }) {
   const router = useRouter();
   const { data: session, status } = useSession({
     required: true,
