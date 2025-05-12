@@ -7,6 +7,7 @@ import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api'
 import { useRouter } from 'next/router'
 import axios from 'axios'
 import { useSession } from 'next-auth/react'
+import io from 'socket.io-client'
 
 // Google Maps API anahtarı
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyAKht3SqaVJpufUdq-vVQEfBEQKejT9Z8k";
@@ -29,6 +30,8 @@ export default function ActiveDriversPage() {
   const [selectedTab, setSelectedTab] = useState('all')
   const [showDriverDetailModal, setShowDriverDetailModal] = useState(null)
   const [selectedLocation, setSelectedLocation] = useState(null)
+  const [users, setUsers] = useState([])
+  const [socket, setSocket] = useState(null)
 
   // Google Maps yükleme
   const { isLoaded, loadError } = useJsApiLoader({
@@ -76,9 +79,100 @@ export default function ActiveDriversPage() {
     }
   };
 
-  // API'den aktif freelancerları çek
+  // WebSocket bağlantısını kur
   useEffect(() => {
-    fetchActiveFreelancers();
+    // Socket.io bağlantısını oluştur
+    const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000', {
+      path: '/api/socketio',
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 10000,
+      autoConnect: true
+    })
+
+    // Bağlantı başarılı olduğunda
+    socketInstance.on('connect', () => {
+      console.log('Socket bağlantısı başarılı')
+    })
+
+    // Bağlantı hatası olduğunda
+    socketInstance.on('connect_error', (error) => {
+      console.error('Socket bağlantı hatası:', error)
+    })
+
+    // Yeniden bağlanma denemesi olduğunda
+    socketInstance.on('reconnect_attempt', (attemptNumber) => {
+      console.log(`Yeniden bağlanma denemesi: ${attemptNumber}`)
+    })
+
+    // Kullanıcı durumu değişikliğini dinle
+    socketInstance.on('userStatusChange', (data) => {
+      console.log('Kullanıcı durumu değişti:', data)
+      
+      // Kullanıcı listesini güncelle
+      setUsers(prevUsers => {
+        // Eğer kullanıcı çevrimiçi olduysa ve sürücü/freelance ise listeye ekle
+        if (data.isOnline && (data.userType === 'driver' || data.userType === 'freelance')) {
+          // Kullanıcı zaten listede var mı kontrol et
+          const userExists = prevUsers.some(user => user._id === data._id)
+          if (!userExists) {
+            return [...prevUsers, data]
+          }
+        }
+        
+        // Eğer kullanıcı çevrimdışı olduysa listeden çıkar
+        if (!data.isOnline) {
+          return prevUsers.filter(user => user._id !== data._id)
+        }
+        
+        return prevUsers
+      })
+    })
+
+    // Bağlantı koptuğunda
+    socketInstance.on('disconnect', (reason) => {
+      console.log('Socket bağlantısı koptu:', reason)
+    })
+
+    // Socket instance'ını state'e kaydet
+    setSocket(socketInstance)
+
+    // Component unmount olduğunda bağlantıyı kapat
+    return () => {
+      if (socketInstance) {
+        socketInstance.disconnect()
+      }
+    }
+  }, [])
+
+  // Kullanıcıları getir
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/admin/users')
+      const data = await response.json()
+      
+      if (data.success) {
+        // Sadece çevrimiçi olan sürücü ve freelance kullanıcıları filtrele
+        const onlineUsers = data.users.filter(user => 
+          (user.userType === 'driver' || user.userType === 'freelance') && 
+          user.isOnline === true
+        )
+        setUsers(onlineUsers)
+      } else {
+        console.error('Kullanıcılar getirilemedi:', data.message)
+      }
+    } catch (error) {
+      console.error('Kullanıcılar getirilirken hata:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Kullanıcıları yükle
+  useEffect(() => {
+    fetchUsers();
   }, []);
 
   // API'den aktif sürücüleri çek
@@ -377,7 +471,7 @@ export default function ActiveDriversPage() {
                     : 'bg-white text-gray-700 hover:bg-gray-100'
                 } mb-2`}
               >
-                Aktif
+                Çevrimiçi
               </button>
               <button
                 onClick={() => setSelectedTab('on_delivery')}
@@ -426,8 +520,8 @@ export default function ActiveDriversPage() {
                 <FaIdCard className="text-blue-600" />
               </div>
               <div>
-                <h3 className="text-gray-500 text-sm">Toplam Aktif Sürücü</h3>
-                <p className="text-2xl font-bold">{activeCount}</p>
+                <h3 className="text-gray-500 text-sm">Toplam Aktif Kullanıcı</h3>
+                <p className="text-2xl font-bold">{users.length}</p>
               </div>
             </div>
           </div>
@@ -438,8 +532,8 @@ export default function ActiveDriversPage() {
                 <FaCheck className="text-green-600" />
               </div>
               <div>
-                <h3 className="text-gray-500 text-sm">Müsait Sürücüler</h3>
-                <p className="text-2xl font-bold">{activeDrivers.filter(d => d.status !== 'busy').length}</p>
+                <h3 className="text-gray-500 text-sm">Çevrimiçi Sürücüler</h3>
+                <p className="text-2xl font-bold">{users.filter(user => user.userType === 'driver').length}</p>
               </div>
             </div>
           </div>
@@ -451,19 +545,7 @@ export default function ActiveDriversPage() {
               </div>
               <div>
                 <h3 className="text-gray-500 text-sm">Taşımada</h3>
-                <p className="text-2xl font-bold">{activeDrivers.filter(d => d.status === 'busy').length}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-4 flex-1">
-            <div className="flex items-center">
-              <div className="bg-yellow-100 p-3 rounded-full mr-4">
-                <FaUser className="text-yellow-600" />
-              </div>
-              <div>
-                <h3 className="text-gray-500 text-sm">Aktif Freelancer</h3>
-                <p className="text-2xl font-bold">{freelancerMarkers.length}</p>
+                <p className="text-2xl font-bold">{users.filter(user => user.status === 'busy' || user.status === 'on_delivery').length}</p>
               </div>
             </div>
           </div>
@@ -584,166 +666,72 @@ export default function ActiveDriversPage() {
           )}
         </div>
 
-        {/* Sürücü Listesi */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sürücü</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İletişim</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Araç</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durum</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Konum</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Son Aktivite</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {/* Önce Freelancerları Göster */}
-                {freelancerMarkers.map((freelancer) => (
-                  <tr key={`freelancer-${freelancer.id}`} className="hover:bg-gray-50 bg-orange-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold">
-                          {freelancer.contactPerson?.charAt(0) || "F"}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {freelancer.contactPerson || "İsimsiz Kişi"}
-                            <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-orange-100 text-orange-800">Freelance</span>
+        {/* Tablo */}
+        <div className="mt-8 flex flex-col">
+          <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
+              <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+                <table className="min-w-full divide-y divide-gray-300">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                        Kullanıcı
+                      </th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        Tip
+                      </th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        Durum
+                      </th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        Son Görülme
+                      </th>
+                      <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
+                        <span className="sr-only">Detay</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 bg-white">
+                    {users.map((user) => (
+                      <tr key={user._id}>
+                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 flex-shrink-0">
+                              <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                                <span className="text-lg font-medium text-orange-700">
+                                  {user.name?.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="ml-4">
+                              <div className="font-medium text-gray-900">{user.name}</div>
+                              <div className="text-gray-500">{user.email}</div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col space-y-1">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <FaPhone className="mr-2 text-gray-500" /> {freelancer.phone || 'N/A'}
-                        </div>
-                        <div className="flex items-center text-sm text-gray-500">
-                          <FaEnvelope className="mr-2 text-gray-500" /> {freelancer.email || 'N/A'}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">Freelance Taşıyıcı</div>
-                      <div className="text-sm text-gray-500">-</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        Çevrimiçi
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {freelancer.position ? `${freelancer.position.lat.toFixed(6)}, ${freelancer.position.lng.toFixed(6)}` : 'Bilinmiyor'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Şu anda aktif</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex space-x-2">
-                        <button 
-                          className="text-orange-600 hover:text-orange-900 transition-colors" 
-                          title="Takip Et"
-                          onClick={() => zoomToLocation(freelancer.position)}
-                        >
-                          <FaMapMarkerAlt className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-
-                {/* Sonra Normal Sürücüleri Göster */}
-                {activeDrivers.map((driver) => (
-                  <tr key={driver.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 font-bold">
-                          {driver.name?.charAt(0) || "?"}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{driver.name}</div>
-                          <div className="text-sm text-gray-500">{driver.company}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col space-y-1">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <FaPhone className="mr-2 text-gray-500" /> {driver.phone || 'N/A'}
-                        </div>
-                        <div className="flex items-center text-sm text-gray-500">
-                          <FaEnvelope className="mr-2 text-gray-500" /> {driver.email || 'N/A'}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{driver.vehicleType || driver.vehicle?.type || 'N/A'}</div>
-                      <div className="text-sm text-gray-500">{driver.licensePlate || driver.vehicle?.licensePlate || 'N/A'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(driver.status)}`}>
-                        {formatStatus(driver.status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{driver.location || 'Bilinmiyor'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{driver.lastActive || driver.lastSeen || 'Bilinmiyor'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex space-x-2">
-                        <button 
-                          className="text-orange-600 hover:text-orange-900 transition-colors" 
-                          title="Takip Et"
-                          onClick={() => {
-                            // Konum bilgisini kontrol et
-                            if (typeof driver.location === 'string' && driver.location.includes(',')) {
-                              const locationParts = driver.location.split(',');
-                              if (locationParts.length >= 2) {
-                                const lat = parseFloat(locationParts[0].trim());
-                                const lng = parseFloat(locationParts[1].trim());
-                                
-                                if (!isNaN(lat) && !isNaN(lng)) {
-                                  zoomToLocation({ lat, lng });
-                                }
-                              }
-                            }
-                          }}
-                        >
-                          <FaMapMarkerAlt className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="bg-white px-6 py-4 border-t border-gray-200">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-500">
-                Toplam <span className="font-medium text-gray-900">{activeDrivers.length}</span> aktif sürücü ve 
-                <span className="font-medium text-gray-900"> {freelancerMarkers.length}</span> freelancer bulundu
-              </p>
-              
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="inline-flex items-center justify-center w-8 h-8 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FaChevronLeft className="w-4 h-4" />
-                </button>
-                
-                <span className="text-sm text-gray-700">
-                  <span className="font-medium">{currentPage}</span> / <span className="font-medium">{totalPages}</span>
-                </span>
-                
-                <button 
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="inline-flex items-center justify-center w-8 h-8 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FaChevronRight className="w-4 h-4" />
-                </button>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {user.userType === 'driver' ? 'Sürücü' : 'Freelance'}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Çevrimiçi
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {new Date(user.lastSeen).toLocaleString('tr-TR')}
+                        </td>
+                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                          <button
+                            onClick={() => setShowDriverDetailModal(user)}
+                            className="text-orange-600 hover:text-orange-900"
+                          >
+                            Detay
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

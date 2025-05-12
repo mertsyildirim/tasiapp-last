@@ -1,5 +1,7 @@
-import { connectToDatabase } from '/lib/minimal-mongodb';
-import { getSession } from 'next-auth/react';
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '../auth/[...nextauth]'
+import dbConnect from '@/lib/dbConnect'
+import User from '@/models/User'
 
 // CORS middleware
 const allowCors = fn => async (req, res) => {
@@ -26,72 +28,57 @@ async function handler(req, res) {
   }
 
   try {
-    // Kullanıcı oturumunu kontrol et
-    const session = await getSession({ req });
-    
-    // Oturum yoksa boş başarılı yanıt döndür
+    const session = await getServerSession(req, res, authOptions)
+
     if (!session) {
-      console.log('Oturumsuz erişim - çevrimiçi durum güncellenmiyor');
-      return res.status(200).json({ 
-        success: true, 
-        message: 'Oturum açılmadığı için işlem yapılmadı',
-        isOnline: false
-      });
+      return res.status(401).json({ success: false, message: 'Oturum açılmadığı için durum güncellenemedi' })
     }
 
-    const { isOnline } = req.body;
-    
-    if (isOnline === undefined) {
-      return res.status(400).json({ success: false, message: 'isOnline parametresi gerekli' });
-    }
+    await dbConnect()
 
-    // Veritabanına bağlan
-    const { db } = await connectToDatabase();
-    
-    // Kullanıcının çevrimiçi durumunu güncelle
-    const updateResult = await db.collection('users').updateOne(
-      { email: session.user.email },
+    const { isOnline } = req.body
+
+    // Kullanıcıyı güncelle
+    const user = await User.findByIdAndUpdate(
+      session.user.id,
       { 
-        $set: { 
-          isOnline: isOnline,
-          lastOnlineAt: new Date(),
-        },
-        // Çevrimiçi durumu değiştiğinde aktivite logu oluştur
-        $push: {
-          activityLogs: {
-            action: isOnline ? 'online' : 'offline',
-            timestamp: new Date(),
-            ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress
-          }
-        }
-      }
-    );
-
-    // Aktivite logu kaydet
-    await db.collection('activity_logs').insertOne({
-      userId: session.user.id,
-      userInfo: {
-        email: session.user.email,
-        name: session.user.name
+        isOnline,
+        lastSeen: new Date()
       },
-      action: isOnline ? 'online' : 'offline',
-      details: `Kullanıcı ${isOnline ? 'çevrimiçi' : 'çevrimdışı'} oldu`,
-      timestamp: new Date(),
-      ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress
-    });
+      { new: true }
+    )
 
-    if (updateResult.modifiedCount === 0) {
-      return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı veya durum güncellenemedi' });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Kullanıcı bulunamadı' })
+    }
+
+    // Socket.IO sunucusuna bildirim gönder
+    if (req.socket.server.io) {
+      req.socket.server.io.emit('userStatusChange', {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        userType: user.userType,
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen
+      })
     }
 
     return res.status(200).json({ 
       success: true, 
-      message: `Çevrimiçi durumu başarıyla ${isOnline ? 'açık' : 'kapalı'} olarak güncellendi`,
-      isOnline: isOnline
-    });
+      message: `Kullanıcı durumu ${isOnline ? 'çevrimiçi' : 'çevrimdışı'} olarak güncellendi`,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        userType: user.userType,
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen
+      }
+    })
   } catch (error) {
-    console.error('Çevrimiçi durumu güncellenirken hata:', error);
-    return res.status(500).json({ success: false, message: 'Sunucu hatası', error: error.message });
+    console.error('Durum güncelleme hatası:', error)
+    return res.status(500).json({ success: false, message: 'Sunucu hatası' })
   }
 }
 

@@ -124,6 +124,26 @@ export default function VehiclesPage() {
     { id: 'comprehensive', name: 'Kasko Poliçesi' }
   ]
 
+  // Araç tiplerini yükle
+  const [vehicleTypes, setVehicleTypes] = useState([]);
+
+  // Araç tiplerini yükle
+  const loadVehicleTypes = async () => {
+    try {
+      const response = await fetch('/api/admin/vehicle-types');
+      const data = await response.json();
+      if (data) {
+        setVehicleTypes(data);
+      }
+    } catch (error) {
+      console.error('Araç tipleri yüklenirken hata:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadVehicleTypes();
+  }, []);
+
   // Araç verilerini API'den çekme
   useEffect(() => {
     const fetchVehicles = async () => {
@@ -911,8 +931,8 @@ export default function VehiclesPage() {
                         required
                       >
                         <option value="">Seçiniz</option>
-                        {Object.keys(vehicleBrands).map(type => (
-                          <option key={type} value={type}>{type}</option>
+                        {vehicleTypes.map(type => (
+                          <option key={type._id} value={type._id}>{type.name}</option>
                         ))}
                       </select>
                     </div>
@@ -932,9 +952,11 @@ export default function VehiclesPage() {
                         disabled={!newVehicleData.vehicleType}
                       >
                         <option value="">Seçiniz</option>
-                        {newVehicleData.vehicleType && Object.keys(vehicleBrands[newVehicleData.vehicleType]).map(brand => (
-                          <option key={brand} value={brand}>{brand}</option>
-                        ))}
+                        {newVehicleData.vehicleType && vehicleTypes.find(type => type._id === newVehicleData.vehicleType)?.name && 
+                          Object.keys(vehicleBrands[vehicleTypes.find(type => type._id === newVehicleData.vehicleType)?.name] || {}).map(brand => (
+                            <option key={brand} value={brand}>{brand}</option>
+                          ))
+                        }
                         <option value="other">Diğer</option>
                       </select>
                     </div>
@@ -967,7 +989,11 @@ export default function VehiclesPage() {
                         disabled={!newVehicleData.brand || newVehicleData.brand === 'other'}
                       >
                         <option value="">Seçiniz</option>
-                        {newVehicleData.brand && newVehicleData.brand !== 'other' && vehicleBrands[newVehicleData.vehicleType][newVehicleData.brand].map(model => (
+                        {newVehicleData.brand && 
+                         newVehicleData.brand !== 'other' && 
+                         newVehicleData.vehicleType && 
+                         vehicleTypes.find(type => type._id === newVehicleData.vehicleType)?.name &&
+                         vehicleBrands[vehicleTypes.find(type => type._id === newVehicleData.vehicleType)?.name]?.[newVehicleData.brand]?.map(model => (
                           <option key={model} value={model}>{model}</option>
                         ))}
                         <option value="other">Diğer</option>

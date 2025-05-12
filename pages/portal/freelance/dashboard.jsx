@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { FaTruck, FaRoute, FaCalendarAlt, FaMoneyBillWave, FaUser, FaMapMarkedAlt, FaChartLine, FaFileAlt, FaExclamationTriangle, FaBell, FaCheck, FaInbox, FaTools, FaClock, FaExclamationCircle, FaThumbsUp, FaThumbsDown, FaLocationArrow, FaInfoCircle } from 'react-icons/fa';
 import Link from 'next/link';
 import FreelanceLayout from '../../../components/portal/FreelanceLayout';
+import axios from 'axios';
 
 export default function FreelanceDashboard() {
   const router = useRouter();
@@ -49,8 +50,10 @@ export default function FreelanceDashboard() {
     
     console.log("Freelance Dashboard - Session durumu:", status, "Session:", session);
     
-    if (!session) {
-      setLoading(false);
+    // Oturum yoksa login sayfasına yönlendir
+    if (status !== 'authenticated') {
+      console.log("Oturum doğrulanamadı, login sayfasına yönlendiriliyor");
+      router.push('/portal/login');
       return;
     }
 
@@ -58,126 +61,106 @@ export default function FreelanceDashboard() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/portal/dashboard');
+        console.log("API isteği gönderiliyor...");
         
-        // Response status kontrolü
-        if (!response.ok) {
-          console.error('API yanıt hatası:', response.status, response.statusText);
-          throw new Error(`API yanıt hatası: ${response.status}`);
-        }
+        const response = await axios.get('/api/portal/dashboard', {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          },
+          params: {
+            userId: session?.user?.id
+          }
+        });
         
-        const data = await response.json();
+        console.log('API yanıtı:', response.data);
         
-        if (data.success) {
-          console.log('Dashboard verileri başarıyla alındı:', data);
+        if (response.data.success) {
+          console.log('Dashboard verileri başarıyla alındı:', response.data);
           
           // API'den gelen verileri uygun formatta düzenle
           setFreelanceData({
-            name: session.user?.name || data.name || 'Freelance Kullanıcı',
+            name: session.user?.name || response.data.name || 'Freelance Kullanıcı',
             earnings: {
-              today: data.todayEarnings || 0,
-              week: data.weekEarnings || 0,
-              month: data.monthEarnings || 0,
-              total: data.totalEarnings || 0,
-              monthly: data.monthlyEarnings || []
+              today: response.data.todayEarnings || 0,
+              week: response.data.weekEarnings || 0,
+              month: response.data.monthEarnings || 0,
+              total: response.data.totalEarnings || 0,
+              monthly: response.data.monthlyEarnings || []
             },
             tasks: {
-              active: data.activeTasksCount || 0,
-              completed: data.completedTasksCount || 0,
-              upcoming: data.upcomingTasksCount || 0,
-              total: data.totalTasksCount || 0
+              active: response.data.activeTasksCount || 0,
+              completed: response.data.completedTasksCount || 0,
+              upcoming: response.data.upcomingTasksCount || 0,
+              total: response.data.totalTasksCount || 0
             },
             stats: {
-              completionRate: data.completionRate || 0,
-              rating: data.rating || 0,
-              customerSatisfaction: data.customerSatisfaction || 0,
-              responseTime: data.responseTime || 0
+              completionRate: response.data.completionRate || 0,
+              rating: response.data.rating || 0,
+              customerSatisfaction: response.data.customerSatisfaction || 0,
+              responseTime: response.data.responseTime || 0
             },
-            recentTasks: data.recentTasks || [],
+            recentTasks: response.data.recentTasks || [],
             quickActions: [
-              { id: 1, title: 'Yeni Taşıma Talebi Gör', icon: FaInbox, link: '/portal/freelance/requests', color: 'bg-blue-500', count: data.newRequestsCount || 0 },
+              { id: 1, title: 'Yeni Taşıma Talebi Gör', icon: FaInbox, link: '/portal/freelance/requests', color: 'bg-blue-500', count: response.data.newRequestsCount || 0 },
               { id: 2, title: 'Taşımalarımı Yönet', icon: FaTruck, link: '/portal/freelance/tasks', color: 'bg-green-500' },
               { id: 3, title: 'Rota Planla', icon: FaRoute, link: '/portal/freelance/routes', color: 'bg-indigo-500' },
               { id: 4, title: 'Faturalarımı Gör', icon: FaMoneyBillWave, link: '/portal/freelance/earnings', color: 'bg-yellow-500' }
             ],
-            pendingPayments: data.pendingPayments || [],
-            documentsToRenew: data.documentsToRenew || [],
-            transportRequests: data.newRequests || []
+            pendingPayments: response.data.pendingPayments || [],
+            documentsToRenew: response.data.documentsToRenew || [],
+            transportRequests: response.data.newRequests || []
           });
         } else {
-          console.error('Dashboard verileri alınamadı:', data.message);
+          console.error('Dashboard verileri alınamadı:', response.data.message);
           // Hata durumunda boş veri göster
-          setFreelanceData({
-            name: session.user?.name || 'Freelance Kullanıcı',
-            earnings: {
-              today: 0,
-              week: 0,
-              month: 0,
-              total: 0,
-              monthly: []
-            },
-            tasks: {
-              active: 0,
-              completed: 0,
-              upcoming: 0,
-              total: 0
-            },
-            stats: {
-              completionRate: 0,
-              rating: 0,
-              customerSatisfaction: 0,
-              responseTime: 0
-            },
-            recentTasks: [],
-            quickActions: [
-              { id: 1, title: 'Yeni Taşıma Talebi Gör', icon: FaInbox, link: '/portal/freelance/requests', color: 'bg-blue-500', count: 0 },
-              { id: 2, title: 'Taşımalarımı Yönet', icon: FaTruck, link: '/portal/freelance/tasks', color: 'bg-green-500' },
-              { id: 3, title: 'Rota Planla', icon: FaRoute, link: '/portal/freelance/routes', color: 'bg-indigo-500' },
-              { id: 4, title: 'Faturalarımı Gör', icon: FaMoneyBillWave, link: '/portal/freelance/earnings', color: 'bg-yellow-500' }
-            ],
-            pendingPayments: [],
-            documentsToRenew: [],
-            transportRequests: []
-          });
+          initializeEmptyData();
         }
       } catch (error) {
         console.error('Dashboard verileri alınırken hata:', error);
+        console.error('Hata detayları:', error.response?.data);
+        
         // Hata durumunda boş veri göster
-        setFreelanceData({
-          name: session.user?.name || 'Freelance Kullanıcı',
-          earnings: {
-            today: 0,
-            week: 0,
-            month: 0,
-            total: 0,
-            monthly: []
-          },
-          tasks: {
-            active: 0,
-            completed: 0,
-            upcoming: 0,
-            total: 0
-          },
-          stats: {
-            completionRate: 0,
-            rating: 0,
-            customerSatisfaction: 0,
-            responseTime: 0
-          },
-          recentTasks: [],
-          quickActions: [
-            { id: 1, title: 'Yeni Taşıma Talebi Gör', icon: FaInbox, link: '/portal/freelance/requests', color: 'bg-blue-500', count: 0 },
-            { id: 2, title: 'Taşımalarımı Yönet', icon: FaTruck, link: '/portal/freelance/tasks', color: 'bg-green-500' },
-            { id: 3, title: 'Rota Planla', icon: FaRoute, link: '/portal/freelance/routes', color: 'bg-indigo-500' },
-            { id: 4, title: 'Faturalarımı Gör', icon: FaMoneyBillWave, link: '/portal/freelance/earnings', color: 'bg-yellow-500' }
-          ],
-          pendingPayments: [],
-          documentsToRenew: [],
-          transportRequests: []
-        });
+        initializeEmptyData();
       } finally {
         setLoading(false);
       }
+    };
+    
+    // Boş dashboard verisi oluşturma fonksiyonu
+    const initializeEmptyData = () => {
+      setFreelanceData({
+        name: session.user?.name || 'Freelance Kullanıcı',
+        earnings: {
+          today: 0,
+          week: 0,
+          month: 0,
+          total: 0,
+          monthly: []
+        },
+        tasks: {
+          active: 0,
+          completed: 0,
+          upcoming: 0,
+          total: 0
+        },
+        stats: {
+          completionRate: 0,
+          rating: 0,
+          customerSatisfaction: 0,
+          responseTime: 0
+        },
+        recentTasks: [],
+        quickActions: [
+          { id: 1, title: 'Yeni Taşıma Talebi Gör', icon: FaInbox, link: '/portal/freelance/requests', color: 'bg-blue-500', count: 0 },
+          { id: 2, title: 'Taşımalarımı Yönet', icon: FaTruck, link: '/portal/freelance/tasks', color: 'bg-green-500' },
+          { id: 3, title: 'Rota Planla', icon: FaRoute, link: '/portal/freelance/routes', color: 'bg-indigo-500' },
+          { id: 4, title: 'Faturalarımı Gör', icon: FaMoneyBillWave, link: '/portal/freelance/earnings', color: 'bg-yellow-500' }
+        ],
+        pendingPayments: [],
+        documentsToRenew: [],
+        transportRequests: []
+      });
     };
     
     fetchDashboardData();
@@ -208,10 +191,10 @@ export default function FreelanceDashboard() {
         <div className="min-h-screen flex flex-col items-center justify-center p-4">
           <div className="bg-white shadow-md rounded-lg p-6 max-w-md w-full">
             <div className="text-center mb-4">
-              <FaChartLine className="mx-auto h-12 w-12 text-orange-500" />
+              <FaUser className="mx-auto h-12 w-12 text-orange-500" />
               <h3 className="mt-2 text-lg font-medium text-gray-900">Oturum Açmanız Gerekiyor</h3>
               <p className="mt-1 text-sm text-gray-500">
-                Dashboard bilgilerinizi görüntülemek için lütfen giriş yapın.
+                Dashboard verilerinizi görüntülemek için lütfen giriş yapın.
               </p>
             </div>
             <div className="mt-5">

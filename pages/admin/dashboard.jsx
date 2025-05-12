@@ -379,9 +379,15 @@ export default function DashboardPage() {
                           <p className="text-sm text-gray-500">{user.email}</p>
                         </div>
                     </div>
-                      <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(user.status)}`}>
-                        {user.status === 'active' ? 'Aktif' : 'Pasif'}
-                      </span>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          user.status === 'active' 
+                            ? 'bg-red-100 text-red-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {user.status === 'active' ? 'Aktif' : 'Pasif'}
+                        </span>
+                      </td>
                   </div>
                 ))}
               </div>
@@ -407,11 +413,36 @@ export default function DashboardPage() {
                   {recent.transportRequests.slice(0, 5).map((shipment, index) => (
                     <div key={shipment._id || shipment.id || index} className="flex items-center justify-between border-b pb-3 last:border-0">
                       <div>
-                        <p className="font-medium text-gray-800">#{shipment.id?.substring(0, 8) || `TŞM${index+1}`}</p>
-                        <p className="text-sm text-gray-500">{shipment.pickupLocation || shipment.from} → {shipment.deliveryLocation || shipment.to}</p>
+                        <p className="font-medium text-gray-800">#{(shipment._id || shipment.id)?.substring((shipment._id || shipment.id)?.length - 6) || `TŞM${index+1}`}</p>
+                        <p className="text-sm text-gray-500">
+                          {(shipment.pickupLocation || shipment.from)?.split(',').slice(-2).join(',').replace(/\d+/g, '').replace(/Türkiye/g, '').trim()} → {(shipment.deliveryLocation || shipment.to)?.split(',').slice(-2).join(',').replace(/\d+/g, '').replace(/Türkiye/g, '').trim()}
+                        </p>
+                        <p className="text-xs text-gray-400">{shipment.transportType}</p>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(shipment.status)}`}>
-                        {shipment.status}
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        shipment.status === 'waiting-pickup'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : shipment.status === 'in-transit' || shipment.status === 'in_progress'
+                            ? 'bg-blue-100 text-blue-800'
+                            : shipment.status === 'delivered'
+                              ? 'bg-green-100 text-green-800'
+                              : shipment.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : shipment.status === 'cancelled'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {shipment.status === 'waiting-pickup'
+                          ? 'Alım Bekliyor'
+                          : shipment.status === 'in-transit' || shipment.status === 'in_progress'
+                            ? 'Taşınıyor'
+                            : shipment.status === 'delivered'
+                              ? 'Teslim Edildi'
+                              : shipment.status === 'pending'
+                                ? 'Beklemede'
+                                : shipment.status === 'cancelled'
+                                  ? 'İptal Edildi'
+                                  : shipment.status}
                       </span>
                     </div>
                   ))}

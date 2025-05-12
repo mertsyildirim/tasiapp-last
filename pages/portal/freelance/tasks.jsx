@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { FaTruck, FaCalendarAlt, FaMapMarkerAlt, FaClock, FaFilter, FaSearch, FaEye, FaEyeSlash, FaCheckCircle, FaTimesCircle, FaExclamationCircle } from 'react-icons/fa';
 import Link from 'next/link';
 import FreelanceLayout from '../../../components/portal/FreelanceLayout';
+import axios from 'axios';
 
 export default function FreelanceTasks() {
   const router = useRouter();
@@ -24,38 +25,59 @@ export default function FreelanceTasks() {
     
     console.log("Freelance Tasks - Session durumu:", status, "Session:", session);
     
-    if (!session) return;
+    // Oturum yoksa login sayfasına yönlendir
+    if (status !== 'authenticated') {
+      console.log("Oturum doğrulanamadı, login sayfasına yönlendiriliyor");
+      router.push('/portal/login');
+      return;
+    }
 
     // Taşıma verilerini API'den al
     const fetchShipments = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/portal/freelance-shipments');
-        const data = await response.json();
+        console.log("API isteği gönderiliyor...");
+        const response = await axios.get('/api/portal/freelance-shipments', {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          },
+          params: {
+            userId: session?.user?.id
+          }
+        });
         
-        if (data.success) {
-          console.log('Taşımalar başarıyla alındı:', data);
+        console.log('API yanıtı:', response.data);
+        
+        if (response.data.success) {
+          console.log('Taşımalar başarıyla alındı:', response.data);
           
           // API'den gelen verileri tasks state'ine ata
-          const allTasks = data.all || [];
+          const allTasks = response.data.all || [];
           setTasks(allTasks);
           
           // Filtrelenmiş görev listesini de güncelle
           setFilteredTasks(allTasks);
         } else {
-          console.error('Taşıma verisi alınamadı:', data.message);
+          console.error('Taşıma verisi alınamadı:', response.data.message);
           // Hata durumunda boş veri göster
-          setTasks([]);
-          setFilteredTasks([]);
+          initializeEmptyData();
         }
       } catch (error) {
         console.error('Taşıma verisi alınırken hata:', error);
+        console.error('Hata detayları:', error.response?.data);
+        
         // Hata durumunda boş veri göster
-        setTasks([]);
-        setFilteredTasks([]);
+        initializeEmptyData();
       } finally {
         setLoading(false);
       }
+    };
+    
+    // Boş görev verisi oluşturma fonksiyonu
+    const initializeEmptyData = () => {
+      setTasks([]);
+      setFilteredTasks([]);
     };
 
     fetchShipments();
@@ -188,21 +210,23 @@ export default function FreelanceTasks() {
 
   const handleStartShipment = async (id) => {
     try {
-      const response = await fetch('/api/portal/update-shipment-status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await axios.post('/api/portal/update-shipment-status', 
+        {
           shipmentId: id,
           status: 'in_progress'
-        }),
-      });
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          }
+        }
+      );
 
-      const data = await response.json();
-
-      if (data.success) {
-        // UI'ı güncelle
+      if (response.data.success) {
+        console.log(`Taşıma başlatıldı: ${id}`);
+        
+        // Görev durumunu güncelle
         const updatedTasks = tasks.map(task => {
           if (task.id === id) {
             return { ...task, status: 'in_progress' };
@@ -211,7 +235,8 @@ export default function FreelanceTasks() {
         });
         
         setTasks(updatedTasks);
-        // Filtrelenmiş liste de güncellenmeli
+        
+        // Filtreli listeyi de güncelle
         const updatedFilteredTasks = filteredTasks.map(task => {
           if (task.id === id) {
             return { ...task, status: 'in_progress' };
@@ -220,35 +245,35 @@ export default function FreelanceTasks() {
         });
         
         setFilteredTasks(updatedFilteredTasks);
-        
-        // Modal'ı kapat
-        setExpandedTaskId(null);
       } else {
-        alert('Taşıma başlatılırken bir hata oluştu: ' + data.message);
+        alert(`Taşıma başlatılırken bir hata oluştu: ${response.data.message}`);
       }
     } catch (error) {
       console.error('Taşıma başlatma hatası:', error);
+      console.error('Hata detayları:', error.response?.data);
       alert('Taşıma başlatılırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
     }
   };
 
   const handleCompleteShipment = async (id) => {
     try {
-      const response = await fetch('/api/portal/update-shipment-status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await axios.post('/api/portal/update-shipment-status', 
+        {
           shipmentId: id,
           status: 'completed'
-        }),
-      });
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          }
+        }
+      );
 
-      const data = await response.json();
-
-      if (data.success) {
-        // UI'ı güncelle
+      if (response.data.success) {
+        console.log(`Taşıma tamamlandı: ${id}`);
+        
+        // Görev durumunu güncelle
         const updatedTasks = tasks.map(task => {
           if (task.id === id) {
             return { ...task, status: 'completed' };
@@ -258,7 +283,7 @@ export default function FreelanceTasks() {
         
         setTasks(updatedTasks);
         
-        // Filtrelenmiş liste de güncellenmeli
+        // Filtreli listeyi de güncelle
         const updatedFilteredTasks = filteredTasks.map(task => {
           if (task.id === id) {
             return { ...task, status: 'completed' };
@@ -267,35 +292,35 @@ export default function FreelanceTasks() {
         });
         
         setFilteredTasks(updatedFilteredTasks);
-        
-        // Modal'ı kapat
-        setExpandedTaskId(null);
       } else {
-        alert('Taşıma tamamlanırken bir hata oluştu: ' + data.message);
+        alert(`Taşıma tamamlanırken bir hata oluştu: ${response.data.message}`);
       }
     } catch (error) {
       console.error('Taşıma tamamlama hatası:', error);
+      console.error('Hata detayları:', error.response?.data);
       alert('Taşıma tamamlanırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
     }
   };
 
   const handleCancelShipment = async (id) => {
     try {
-      const response = await fetch('/api/portal/update-shipment-status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await axios.post('/api/portal/update-shipment-status', 
+        {
           shipmentId: id,
           status: 'cancelled'
-        }),
-      });
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          }
+        }
+      );
 
-      const data = await response.json();
-
-      if (data.success) {
-        // UI'ı güncelle
+      if (response.data.success) {
+        console.log(`Taşıma iptal edildi: ${id}`);
+        
+        // Görev durumunu güncelle
         const updatedTasks = tasks.map(task => {
           if (task.id === id) {
             return { ...task, status: 'cancelled' };
@@ -305,7 +330,7 @@ export default function FreelanceTasks() {
         
         setTasks(updatedTasks);
         
-        // Filtrelenmiş liste de güncellenmeli
+        // Filtreli listeyi de güncelle
         const updatedFilteredTasks = filteredTasks.map(task => {
           if (task.id === id) {
             return { ...task, status: 'cancelled' };
@@ -314,14 +339,12 @@ export default function FreelanceTasks() {
         });
         
         setFilteredTasks(updatedFilteredTasks);
-        
-        // Modal'ı kapat
-        setExpandedTaskId(null);
       } else {
-        alert('Taşıma iptal edilirken bir hata oluştu: ' + data.message);
+        alert(`Taşıma iptal edilirken bir hata oluştu: ${response.data.message}`);
       }
     } catch (error) {
       console.error('Taşıma iptal hatası:', error);
+      console.error('Hata detayları:', error.response?.data);
       alert('Taşıma iptal edilirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
     }
   };

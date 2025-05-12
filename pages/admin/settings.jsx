@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { FaSave, FaLock, FaEnvelope, FaBell, FaDesktop, FaDatabase, FaShieldAlt, FaPaintBrush, FaSpinner, FaNewspaper, FaGift, FaHome, FaCog, FaEdit, FaTrash, FaTimes } from 'react-icons/fa'
+import { FaSave, FaLock, FaEnvelope, FaBell, FaDesktop, FaDatabase, FaShieldAlt, FaPaintBrush, FaSpinner, FaNewspaper, FaGift, FaHome, FaCog, FaEdit, FaTrash, FaTimes, FaPlus } from 'react-icons/fa'
 import AdminLayout from '../../components/admin/Layout'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/router'
@@ -21,6 +21,7 @@ export default function SettingsPage() {
   }, [session, router]);
 
   const [selectedTab, setSelectedTab] = useState('services')
+  
   const [maintenanceConfig, setMaintenanceConfig] = useState({
     homeEnabled: false,
     portalEnabled: false
@@ -37,37 +38,40 @@ export default function SettingsPage() {
   const [selectedRoles, setSelectedRoles] = useState([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [loadingRoles, setLoadingRoles] = useState(false)
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [loadingBrands, setLoadingBrands] = useState(false);
 
   // Araç tipleri için state
   const [vehicleTypes, setVehicleTypes] = useState([]);
   const [newVehicleType, setNewVehicleType] = useState('');
   const [editingVehicleType, setEditingVehicleType] = useState({ name: '' });
   const [showVehicleTypeModal, setShowVehicleTypeModal] = useState(false);
+  // Yeni araç tipi ekleme modalı için state
+  const [showAddVehicleTypeModal, setShowAddVehicleTypeModal] = useState(false);
 
   // E-posta ayarları
   const [emailSettings, setEmailSettings] = useState({
-    smtpHost: 'smtp.gmail.com',
-    smtpPort: '587',
-    smtpUser: 'bildirim@tasiapp.com',
-    smtpPassword: '********',
-    senderName: 'Taşı App',
-    senderEmail: 'bildirim@tasiapp.com',
-    useSSL: true
+    smtpHost: '',
+    smtpPort: '',
+    smtpUser: '',
+    smtpPassword: '',
+    senderName: '',
+    senderEmail: '',
+    useSSL: false
   });
   const [testEmail, setTestEmail] = useState('');
 
   // Bildirim ayarları ve bildirimlerin kendisi
   const [notificationSettings, setNotificationSettings] = useState({
-    emailNotifications: true,
+    emailNotifications: false,
     smsNotifications: false,
-    desktopNotifications: true,
-    systemEvents: true,
-    userEvents: true,
-    paymentEvents: true,
-    shippingEvents: true
+    desktopNotifications: false,
+    systemEvents: false,
+    userEvents: false,
+    paymentEvents: false,
+    shippingEvents: false
   });
   const [notifications, setNotifications] = useState([]);
-  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   // Manuel bildirim gönderme
   const [manualNotification, setManualNotification] = useState({
@@ -77,7 +81,7 @@ export default function SettingsPage() {
     url: '',
     recipientType: 'all',
     recipientId: '',
-    sendEmail: true
+    sendEmail: false
   });
   const [isSending, setIsSending] = useState(false);
 
@@ -398,51 +402,37 @@ export default function SettingsPage() {
   // E-posta ayarlarını getir
   const loadEmailSettings = async () => {
     try {
-      console.log('E-posta ayarları yükleniyor...');
-      setIsSaving(true);
-      
-      const response = await fetch('/api/admin/email-settings', {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`E-posta ayarları getirilemedi: ${response.status}`);
-      }
-      
+      const response = await fetch('/api/admin/email-settings');
       const result = await response.json();
-      console.log('E-posta ayarları:', result);
       
-      if (result && result.success && result.data) {
-        // Gelen veriyi düzgün formatta olduğundan emin olalım
+      console.log('API Response:', result);
+      console.log('API Data:', result.data);
+      console.log('API Data Type:', typeof result.data);
+      console.log('API Data Keys:', Object.keys(result.data));
+      
+      if (result.success) {
         const cleanedData = {
-          smtpHost: result.data.smtpHost || '',
-          smtpPort: result.data.smtpPort || '587',
-          smtpUser: result.data.smtpUser || '',
-          smtpPassword: result.data.smtpPassword || '',
-          senderName: result.data.senderName || '',
-          senderEmail: result.data.senderEmail || '',
-          useSSL: result.data.useSSL || false
+          smtpHost: result.data.data.smtpHost || '',
+          smtpPort: result.data.data.smtpPort || '',
+          smtpUser: result.data.data.smtpUser || '',
+          smtpPassword: result.data.data.smtpPassword || '',
+          senderName: result.data.data.senderName || '',
+          senderEmail: result.data.data.senderEmail || '',
+          useSSL: result.data.data.useSSL || false
         };
         
-        setEmailSettings(cleanedData);
-        console.log('E-posta ayarları temizlenmiş hali:', cleanedData);
+        console.log('Cleaned Data:', cleanedData);
+        console.log('Cleaned Data Type:', typeof cleanedData);
+        console.log('Cleaned Data Keys:', Object.keys(cleanedData));
         
-        // Bilgilendirme mesajı göster (varsa)
-        if (result.message && result.message.includes('varsayılan')) {
-          toast.info(result.message);
-        }
+        setEmailSettings(cleanedData);
+        toast.success('E-posta ayarları yüklendi');
       } else {
-        console.error('API yanıt formatı beklenenden farklı:', result);
-        toast.error('E-posta ayarlarını yüklerken bir hata oluştu: Yanıt formatı beklenenden farklı');
+        toast.error(result.message || 'E-posta ayarları yüklenemedi');
       }
     } catch (error) {
       console.error('E-posta ayarları yüklenirken hata:', error);
-      toast.error(`E-posta ayarlarını yüklerken bir hata oluştu: ${error.message}`);
-      // Hata olsa da varsayılan ayarlar kullanılacak
-    } finally {
-      setIsSaving(false);
+      toast.error('E-posta ayarları yüklenirken bir hata oluştu');
     }
   };
 
@@ -744,7 +734,7 @@ export default function SettingsPage() {
           url: '',
           recipientType: 'all',
           recipientId: '',
-          sendEmail: true
+          sendEmail: false
         });
       } else {
         setSaveMessage(`Hata: ${data.error || 'Bildirim gönderilemedi'}`);
@@ -944,79 +934,25 @@ export default function SettingsPage() {
         vehicleType: editingService.vehicleType,
         baseKm: editingService.baseKm,
         urgentFee: editingService.urgentFee,
-        nightFee: editingService.nightFee
+        nightFee: editingService.nightFee,
+        basePrice: editingService.basePrice,
+        pricePerKm: editingService.pricePerKm,
+        maxKm: editingService.maxKm,
+        isInnerCity: editingService.isInnerCity,
+        isOuterCity: editingService.isOuterCity,
+        redirectUrl: editingService.redirectUrl
       };
 
       // Eğer yeni packageTitles varsa onu kullan, yoksa eski yapıdan veri oluştur
       if (editingService.packageTitles) {
-        updateData.packageTitles = editingService.packageTitles.map(title => ({
-          ...title,
-          subtitle: (title.subtitle || []).map(sub => ({
-            text: sub.text,
-            icon: sub.icon, // iconFile değil, sadece icon (url veya string)
-            ratio: sub.ratio,
-            relatedServiceId: sub.relatedServiceId
-          }))
-        }));
-        
-        // Geriye dönük uyumluluk için packageTitle1-4 değerlerini de ayarla
-        if (editingService.packageTitles.length > 0) updateData.packageTitle1 = editingService.packageTitles[0].title;
-        if (editingService.packageTitles.length > 1) updateData.packageTitle2 = editingService.packageTitles[1].title;
-        if (editingService.packageTitles.length > 2) updateData.packageTitle3 = editingService.packageTitles[2].title;
-        if (editingService.packageTitles.length > 3) updateData.packageTitle4 = editingService.packageTitles[3].title;
+        updateData.packageTitles = editingService.packageTitles;
       } else {
-        // Eski yapı
         updateData.packageTitle1 = editingService.packageTitle1 || '';
         updateData.packageTitle2 = editingService.packageTitle2 || '';
         updateData.packageTitle3 = editingService.packageTitle3 || '';
         updateData.packageTitle4 = editingService.packageTitle4 || '';
-        
-        // Eski yapıdan yeni yapı oluştur
-        const titles = [];
-        if (editingService.packageTitle1) {
-          titles.push({
-            id: '1',
-            title: editingService.packageTitle1,
-            subtitle: [],
-            required: false,
-            type: 'input',
-            icon: ''
-          });
-        }
-        if (editingService.packageTitle2) {
-          titles.push({
-            id: '2',
-            title: editingService.packageTitle2,
-            subtitle: [],
-            required: false,
-            type: 'input',
-            icon: ''
-          });
-        }
-        if (editingService.packageTitle3) {
-          titles.push({
-            id: '3',
-            title: editingService.packageTitle3,
-            subtitle: [],
-            required: false,
-            type: 'input',
-            icon: ''
-          });
-        }
-        if (editingService.packageTitle4) {
-          titles.push({
-            id: '4',
-            title: editingService.packageTitle4,
-            subtitle: [],
-            required: false,
-            type: 'input',
-            icon: ''
-          });
-        }
-        updateData.packageTitles = titles;
       }
 
-      // Servisi güncelle
       const response = await fetch(`/api/admin/services/${editingService._id}`, {
         method: 'PUT',
         headers: {
@@ -1026,14 +962,12 @@ export default function SettingsPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Hizmet güncellenirken bir hata oluştu');
+        throw new Error('Hizmet güncellenirken bir hata oluştu');
       }
 
-      await loadServices();
-      setShowEditModal(false);
-      setEditingService(null);
       toast.success('Hizmet başarıyla güncellendi');
+      setShowEditModal(false);
+      loadServices(); // Hizmetleri yeniden yükle
     } catch (error) {
       console.error('Hizmet güncelleme hatası:', error);
       toast.error(error.message || 'Hizmet güncellenirken bir hata oluştu');
@@ -1095,24 +1029,92 @@ export default function SettingsPage() {
 
   // Blog ayarları için state
   const [blogSettings, setBlogSettings] = useState({
-    enableComments: true,
-    moderateComments: true,
-    postsPerPage: 10,
+    enableComments: false,
     allowGuestComments: false,
-    defaultCategory: 'Genel',
-    defaultAuthor: 'Admin'
-  })
+    postsPerPage: 10,
+    defaultCategory: '',
+    defaultAuthor: ''
+  });
 
-  // Kampanya ayarları için state
+  // Blog ayarlarını kaydet
+  const handleSaveBlogSettings = async () => {
+    try {
+      setIsSaving(true);
+      setSaveMessage('');
+      console.log('Blog ayarları kaydediliyor...', blogSettings);
+      
+      const response = await fetch('/api/admin/blog-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(blogSettings)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Blog ayarları kaydedilemedi');
+      }
+      
+      setSaveMessage('Blog ayarları başarıyla kaydedildi');
+    } catch (error) {
+      console.error('Blog ayarları kaydedilirken hata:', error);
+      setSaveMessage('Blog ayarları kaydedilirken bir hata oluştu');
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSaveMessage(''), 5000);
+    }
+  };
+
+  // Blog ayarı değişikliği
+  const handleBlogSettingChange = (field, value) => {
+    setBlogSettings(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const [campaignSettings, setCampaignSettings] = useState({
-    enableCampaigns: true,
-    autoExpire: true,
-    defaultDiscount: 10,
-    maxDiscount: 50,
-    minOrderAmount: 100,
+    enableCampaigns: false,
     allowMultipleCampaigns: false,
-    defaultCampaignDuration: 30 // gün cinsinden
-  })
+    defaultDiscount: 0
+  });
+
+  // Kampanya ayarlarını kaydet
+  const handleSaveCampaignSettings = async () => {
+    try {
+      setIsSaving(true);
+      setSaveMessage('');
+      console.log('Kampanya ayarları kaydediliyor...', campaignSettings);
+      
+      const response = await fetch('/api/admin/campaign-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(campaignSettings)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Kampanya ayarları kaydedilemedi');
+      }
+      
+      setSaveMessage('Kampanya ayarları başarıyla kaydedildi');
+    } catch (error) {
+      console.error('Kampanya ayarları kaydedilirken hata:', error);
+      setSaveMessage('Kampanya ayarları kaydedilirken bir hata oluştu');
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSaveMessage(''), 5000);
+    }
+  };
+
+  // Kampanya ayarı değişikliği
+  const handleCampaignSettingChange = (field, value) => {
+    setCampaignSettings(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -1214,7 +1216,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-gray-500">Blog yazılarında yorum yapılmasına izin ver</p>
               </div>
               <button
-                onClick={() => setBlogSettings(prev => ({ ...prev, enableComments: !prev.enableComments }))}
+                onClick={() => handleBlogSettingChange('enableComments', !blogSettings.enableComments)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
                   blogSettings.enableComments ? 'bg-orange-600' : 'bg-gray-200'
                 }`}
@@ -1229,30 +1231,11 @@ export default function SettingsPage() {
 
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-sm font-medium text-gray-700">Yorum Onayı</label>
-                <p className="text-sm text-gray-500">Yorumlar yayınlanmadan önce onay gereksin</p>
-              </div>
-              <button
-                onClick={() => setBlogSettings(prev => ({ ...prev, moderateComments: !prev.moderateComments }))}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
-                  blogSettings.moderateComments ? 'bg-orange-600' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    blogSettings.moderateComments ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
                 <label className="text-sm font-medium text-gray-700">Misafir Yorumları</label>
                 <p className="text-sm text-gray-500">Üye olmayan kullanıcıların yorum yapmasına izin ver</p>
               </div>
               <button
-                onClick={() => setBlogSettings(prev => ({ ...prev, allowGuestComments: !prev.allowGuestComments }))}
+                onClick={() => handleBlogSettingChange('allowGuestComments', !blogSettings.allowGuestComments)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
                   blogSettings.allowGuestComments ? 'bg-orange-600' : 'bg-gray-200'
                 }`}
@@ -1272,7 +1255,7 @@ export default function SettingsPage() {
               <input
                 type="number"
                 value={blogSettings.postsPerPage}
-                onChange={(e) => setBlogSettings(prev => ({ ...prev, postsPerPage: parseInt(e.target.value) }))}
+                onChange={(e) => handleBlogSettingChange('postsPerPage', parseInt(e.target.value))}
                 className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 min="1"
                 max="50"
@@ -1307,15 +1290,7 @@ export default function SettingsPage() {
 
         <div className="flex justify-end">
           <button
-            onClick={() => {
-              // Blog ayarlarını kaydet
-              setIsSaving(true)
-              setTimeout(() => {
-                setIsSaving(false)
-                setSaveMessage('Blog ayarları başarıyla kaydedildi')
-                setTimeout(() => setSaveMessage(''), 3000)
-              }, 1000)
-            }}
+            onClick={handleSaveBlogSettings}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
             disabled={isSaving}
           >
@@ -1342,7 +1317,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-gray-500">Kampanya sistemini aktif et</p>
               </div>
               <button
-                onClick={() => setCampaignSettings(prev => ({ ...prev, enableCampaigns: !prev.enableCampaigns }))}
+                onClick={() => handleCampaignSettingChange('enableCampaigns', !campaignSettings.enableCampaigns)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
                   campaignSettings.enableCampaigns ? 'bg-orange-600' : 'bg-gray-200'
                 }`}
@@ -1357,30 +1332,11 @@ export default function SettingsPage() {
 
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-sm font-medium text-gray-700">Otomatik Sonlandırma</label>
-                <p className="text-sm text-gray-500">Kampanyaların süresi dolduğunda otomatik olarak sonlandır</p>
-              </div>
-              <button
-                onClick={() => setCampaignSettings(prev => ({ ...prev, autoExpire: !prev.autoExpire }))}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
-                  campaignSettings.autoExpire ? 'bg-orange-600' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    campaignSettings.autoExpire ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
                 <label className="text-sm font-medium text-gray-700">Çoklu Kampanya</label>
                 <p className="text-sm text-gray-500">Bir siparişte birden fazla kampanya kullanılmasına izin ver</p>
               </div>
               <button
-                onClick={() => setCampaignSettings(prev => ({ ...prev, allowMultipleCampaigns: !prev.allowMultipleCampaigns }))}
+                onClick={() => handleCampaignSettingChange('allowMultipleCampaigns', !campaignSettings.allowMultipleCampaigns)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
                   campaignSettings.allowMultipleCampaigns ? 'bg-orange-600' : 'bg-gray-200'
                 }`}
@@ -1400,74 +1356,26 @@ export default function SettingsPage() {
               <input
                 type="number"
                 value={campaignSettings.defaultDiscount}
-                onChange={(e) => setCampaignSettings(prev => ({ ...prev, defaultDiscount: parseInt(e.target.value) }))}
-                className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                min="1"
-                max="100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Maksimum İndirim Oranı (%)
-              </label>
-              <input
-                type="number"
-                value={campaignSettings.maxDiscount}
-                onChange={(e) => setCampaignSettings(prev => ({ ...prev, maxDiscount: parseInt(e.target.value) }))}
-                className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                min="1"
-                max="100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Minimum Sipariş Tutarı (TL)
-              </label>
-              <input
-                type="number"
-                value={campaignSettings.minOrderAmount}
-                onChange={(e) => setCampaignSettings(prev => ({ ...prev, minOrderAmount: parseInt(e.target.value) }))}
+                onChange={(e) => handleCampaignSettingChange('defaultDiscount', parseInt(e.target.value))}
                 className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 min="0"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Varsayılan Kampanya Süresi (Gün)
-              </label>
-              <input
-                type="number"
-                value={campaignSettings.defaultCampaignDuration}
-                onChange={(e) => setCampaignSettings(prev => ({ ...prev, defaultCampaignDuration: parseInt(e.target.value) }))}
-                className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                min="1"
-                max="365"
+                max="100"
               />
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="flex justify-end">
-          <button
-            onClick={() => {
-              // Kampanya ayarlarını kaydet
-              setIsSaving(true)
-              setTimeout(() => {
-                setIsSaving(false)
-                setSaveMessage('Kampanya ayarları başarıyla kaydedildi')
-                setTimeout(() => setSaveMessage(''), 3000)
-              }, 1000)
-            }}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-            disabled={isSaving}
-          >
-            <FaSave className="mr-2" />
-            {isSaving ? 'Kaydediliyor...' : 'Kampanya Ayarlarını Kaydet'}
-          </button>
-        </div>
+      <div className="mt-4 mb-8">
+        <button
+          type="button"
+          onClick={handleSaveCampaignSettings}
+          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+          disabled={isSaving}
+        >
+          <FaSave className="mr-2" />
+          {isSaving ? 'Kaydediliyor...' : 'Kampanya Ayarlarını Kaydet'}
+        </button>
       </div>
     </div>
   )}
@@ -1507,6 +1415,7 @@ export default function SettingsPage() {
 
       toast.success('Araç tipi başarıyla eklendi')
       setNewVehicleType('')
+      setShowAddVehicleTypeModal(false); // Modal'ı kapat
       loadVehicleTypes()
     } catch (error) {
       console.error('Araç tipi ekleme hatası:', error)
@@ -1559,24 +1468,30 @@ export default function SettingsPage() {
   const handleDeleteVehicleType = async (id) => {
     try {
       if (!confirm('Bu araç tipini silmek istediğinizden emin misiniz?')) {
-        return
+        return;
       }
 
       const response = await fetch(`/api/admin/vehicle-types/${id}`, {
-        method: 'DELETE'
-      })
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      });
+
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error('Araç tipi silinirken bir hata oluştu')
+        throw new Error(data.error || 'Araç tipi silinirken bir hata oluştu');
       }
 
-      toast.success('Araç tipi başarıyla silindi')
-      loadVehicleTypes()
+      toast.success('Araç tipi başarıyla silindi');
+      loadVehicleTypes();
     } catch (error) {
-      console.error('Araç tipi silme hatası:', error)
-      toast.error(error.message)
+      console.error('Araç tipi silme hatası:', error);
+      toast.error(error.message);
     }
-  }
+  };
 
   useEffect(() => {
     loadVehicleTypes()
@@ -1730,13 +1645,13 @@ export default function SettingsPage() {
 
   // Genel ayarlar state'i
   const [generalSettings, setGeneralSettings] = useState({
-    siteName: 'Taşı App',
-    contactEmail: 'iletisim@tasiapp.com',
-    phone: '+90 212 123 4567',
-    address: 'Ataşehir, İstanbul, Türkiye',
+    siteName: '',
+    contactEmail: '',
+    phone: '',
+    address: '',
     workingHours: {
-      start: '09:00',
-      end: '18:00'
+      start: '',
+      end: ''
     }
   });
 
@@ -1766,12 +1681,498 @@ export default function SettingsPage() {
     }
   };
 
+  const handleOpenAddVehicleTypeModal = () => {
+    setNewVehicleType(''); // Yeni ekleme yaparken alanı temizle
+    setShowAddVehicleTypeModal(true);
+  };
+
+  const handleCloseAddVehicleTypeModal = () => {
+    setShowAddVehicleTypeModal(false);
+  };
+
+  // Bildirim ayarlarını yükle
+  useEffect(() => {
+    if (selectedTab === 'notifications') {
+      loadNotificationSettings();
+    }
+  }, [selectedTab]);
+
+  // Bildirim ayarlarını getir
+  const loadNotificationSettings = async () => {
+    try {
+      const response = await fetch('/api/admin/notification-settings');
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setNotificationSettings(result.data);
+      } else {
+        console.error('Bildirim ayarları yüklenemedi:', result.message);
+      }
+    } catch (error) {
+      console.error('Bildirim ayarları yüklenirken hata:', error);
+    }
+  };
+
+  // Kampanya ayarlarını yükle
+  useEffect(() => {
+    if (selectedTab === 'campaigns') {
+      loadCampaignSettings();
+    }
+  }, [selectedTab]);
+
+  // Kampanya ayarlarını getir
+  const loadCampaignSettings = async () => {
+    try {
+      const response = await fetch('/api/admin/campaign-settings');
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setCampaignSettings(result.data);
+      } else {
+        console.error('Kampanya ayarları yüklenemedi:', result.message);
+      }
+    } catch (error) {
+      console.error('Kampanya ayarları yüklenirken hata:', error);
+    }
+  };
+
+  // Markalar için state'ler
+  const [brands, setBrands] = useState([]);
+  const [newBrand, setNewBrand] = useState({
+    name: '',
+    vehicleType: '',
+    models: []
+  });
+  const [editingBrand, setEditingBrand] = useState(null);
+  const [newModel, setNewModel] = useState('');
+  const [newBrandModel, setNewBrandModel] = useState('');
+
+  // Araç tipleri listesi
+  const vehicleTypeList = [
+    'Motosiklet',
+    'Otomobil',
+    'Kamyonet',
+    'Kamyon',
+    'Tır',
+    'Minibüs',
+    'Otobüs'
+  ];
+
+  // Markaları yükle
+  const loadBrands = async () => {
+    try {
+      setLoadingBrands(true);
+      console.log("Markalar yükleniyor...");
+      const response = await fetch('/api/admin/vehicle-brands');
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log(`${data.brands.length} marka yüklendi`);
+        setBrands(data.brands);
+      } else {
+        console.error("Markalar yüklenirken hata:", data.message);
+        toast.error(data.message || 'Markalar yüklenirken bir hata oluştu');
+      }
+    } catch (error) {
+      console.error('Markalar yüklenirken hata:', error);
+      toast.error('Markalar yüklenirken bir hata oluştu');
+    } finally {
+      setLoadingBrands(false);
+    }
+  };
+
+  // Marka ekle
+  const handleAddBrand = async () => {
+    if (!newBrand.name || !newBrand.vehicleType) {
+      toast.error('Lütfen marka adı ve araç tipini girin');
+      return;
+    }
+
+    // ObjectId formatına çevir
+    const formattedBrand = {
+      ...newBrand,
+      models: newBrandModel ? [newBrandModel] : []
+    };
+
+    try {
+      console.log("Marka ekleniyor:", formattedBrand);
+      const response = await fetch('/api/admin/vehicle-brands', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formattedBrand)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('Marka başarıyla eklendi');
+        setNewBrand({ name: '', vehicleType: '', models: [] });
+        setNewBrandModel('');
+        loadBrands();
+      } else {
+        console.error("Marka eklenirken hata:", data.message);
+        toast.error(data.message || 'Marka eklenirken bir hata oluştu');
+      }
+    } catch (error) {
+      console.error('Marka eklenirken hata:', error);
+      toast.error('Marka eklenirken bir hata oluştu');
+    }
+  };
+
+  // Marka düzenle
+  const handleEditBrand = async (brandId) => {
+    try {
+      console.log("Marka güncelleniyor:", editingBrand);
+      const response = await fetch(`/api/admin/vehicle-brands/${editingBrand._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editingBrand)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('Marka başarıyla güncellendi');
+        setEditingBrand(null);
+        loadBrands();
+      } else {
+        toast.error(data.message || 'Marka güncellenirken bir hata oluştu');
+      }
+    } catch (error) {
+      console.error('Marka güncellenirken hata:', error);
+      toast.error('Marka güncellenirken bir hata oluştu');
+    }
+  };
+
+  // Marka sil
+  const handleDeleteBrand = async (brandId) => {
+    if (!confirm('Bu markayı silmek istediğinizden emin misiniz?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/vehicle-brands/${brandId}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('Marka başarıyla silindi');
+        loadBrands();
+      } else {
+        toast.error(data.message || 'Marka silinirken bir hata oluştu');
+      }
+    } catch (error) {
+      console.error('Marka silinirken hata:', error);
+      toast.error('Marka silinirken bir hata oluştu');
+    }
+  };
+
+  // Model ekle
+  const handleAddModel = async (brandId) => {
+    if (!newModel.trim()) {
+      toast.error('Lütfen model adını girin');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/vehicle-brands/${brandId}/models`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name: newModel })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('Model başarıyla eklendi');
+        setNewModel('');
+        loadBrands();
+      } else {
+        toast.error(data.message || 'Model eklenirken bir hata oluştu');
+      }
+    } catch (error) {
+      console.error('Model eklenirken hata:', error);
+      toast.error('Model eklenirken bir hata oluştu');
+    }
+  };
+
+  // Model sil
+  const handleDeleteModel = async (brandId, modelName) => {
+    if (!confirm('Bu modeli silmek istediğinizden emin misiniz?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/vehicle-brands/${brandId}/models/${encodeURIComponent(modelName)}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success('Model başarıyla silindi');
+        loadBrands();
+      } else {
+        toast.error(data.message || 'Model silinirken bir hata oluştu');
+      }
+    } catch (error) {
+      console.error('Model silinirken hata:', error);
+      toast.error('Model silinirken bir hata oluştu');
+    }
+  };
+
+  // Markalar sekmesi seçildiğinde verileri yükle
+  useEffect(() => {
+    if (selectedTab === 'brands') {
+      loadBrands();
+      loadVehicleTypes();
+    }
+  }, [selectedTab]);
+
   return (
-    <AdminLayout title="Sistem Ayarları" fixedHeader={true}>
-      {/* Ayarlar Bölümü */}
-      <div className="flex flex-col-reverse md:flex-row bg-white rounded-lg shadow">
-        {/* İçerik Alanı */}
-        <div className="flex-1 p-4 md:p-6 overflow-auto">
+    <AdminLayout title="Sistem Ayarları">
+      <div className="grid grid-cols-1 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow overflow-hidden">
+          <div className="border-b mb-4 pb-3 flex flex-nowrap overflow-x-auto">
+            <button
+              className={`px-4 py-2 text-sm font-medium ${selectedTab === 'general' ? 'text-orange-600 border-b-2 border-orange-500' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setSelectedTab('general')}
+            >
+              Genel Ayarlar
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium ${selectedTab === 'email' ? 'text-orange-600 border-b-2 border-orange-500' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setSelectedTab('email')}
+            >
+              E-posta
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium ${selectedTab === 'security' ? 'text-orange-600 border-b-2 border-orange-500' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setSelectedTab('security')}
+            >
+              Güvenlik
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium ${selectedTab === 'notifications' ? 'text-orange-600 border-b-2 border-orange-500' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setSelectedTab('notifications')}
+            >
+              Bildirimler
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium ${selectedTab === 'permissions' ? 'text-orange-600 border-b-2 border-orange-500' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setSelectedTab('permissions')}
+            >
+              İzinler
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium ${selectedTab === 'services' ? 'text-orange-600 border-b-2 border-orange-500' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setSelectedTab('services')}
+            >
+              Hizmetler
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium ${selectedTab === 'blog' ? 'text-orange-600 border-b-2 border-orange-500' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setSelectedTab('blog')}
+            >
+              Blog
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium ${selectedTab === 'campaigns' ? 'text-orange-600 border-b-2 border-orange-500' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setSelectedTab('campaigns')}
+            >
+              Kampanyalar
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium ${selectedTab === 'vehicleTypes' ? 'text-orange-600 border-b-2 border-orange-500' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setSelectedTab('vehicleTypes')}
+            >
+              Araç Tipleri
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium ${selectedTab === 'brands' ? 'text-orange-600 border-b-2 border-orange-500' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setSelectedTab('brands')}
+            >
+              Markalar
+            </button>
+          </div>
+
+          {selectedTab === 'services' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Hizmetler</h2>
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700"
+                >
+                  Yeni Hizmet Ekle
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Hizmet Adı
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Açıklama
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Açılış Fiyatı (TL)
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        KM Fiyatı (TL)
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Max. KM
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Şehir İçi/Dışı
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Durum
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        İşlemler
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {services.map((service) => (
+                      <tr key={service.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{service.name}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-500">{service.description}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{service.price} TL</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{service.pricePerKm} TL</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{service.maxKm} km</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col items-start space-y-1">
+                            <div className="flex items-center">
+                              <span className={`inline-block w-2 h-2 rounded-full mr-1 ${service.isInnerCity ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                              <span className="text-sm text-gray-600">Şehir İçi</span>
+                            </div>
+                            <div className="flex items-center">
+                              <span className={`inline-block w-2 h-2 rounded-full mr-1 ${service.isOuterCity ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                              <span className="text-sm text-gray-600">Şehir Dışı</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex justify-end items-center space-x-2">
+                            <button
+                              onClick={() => handleServiceStatusChange(service._id)}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                                service.isActive ? 'bg-orange-600' : 'bg-gray-200'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                  service.isActive ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                            <span className="text-sm text-gray-500">
+                              {service.isActive ? 'Aktif' : 'Pasif'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end space-x-3">
+                            <button 
+                              onClick={() => handleEditClick(service)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              <FaEdit className="h-5 w-5" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteService(service._id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <FaTrash className="h-5 w-5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {selectedTab === 'vehicleTypes' && (
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">Araç Tipleri</h2>
+              <div className="mb-4">
+                <button
+                  onClick={handleOpenAddVehicleTypeModal}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center"
+                >
+                  <FaPlus className="mr-2" /> Yeni Araç Tipi Ekle
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Araç Tipi
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Oluşturulma Tarihi
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        İşlemler
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {vehicleTypes.map((type) => (
+                      <tr key={type._id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{type.name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-500">
+                            {formatDate(new Date(type.createdAt))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => handleOpenEditVehicleTypeModal(type)}
+                            className="text-orange-600 hover:text-orange-900 mr-4"
+                          >
+                            Düzenle
+                          </button>
+                          <button
+                            onClick={() => handleDeleteVehicleType(type._id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Sil
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {selectedTab === 'general' && (
             <div>
               <h2 className="text-xl font-semibold text-gray-800 mb-4">Genel Ayarlar</h2>
@@ -1906,6 +2307,126 @@ export default function SettingsPage() {
                   <FaSave className="mr-2" />
                   {isSaving ? 'Kaydediliyor...' : 'Ayarları Kaydet'}
                 </button>
+              </div>
+            </div>
+          )}
+
+          {selectedTab === 'blog' && (
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">Blog Ayarları</h2>
+              
+              <div className="space-y-6">
+                <div className="bg-white p-6 rounded-lg shadow">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Genel Ayarlar</h3>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Yorumlar</label>
+                        <p className="text-sm text-gray-500">Blog yazılarında yorum yapılmasına izin ver</p>
+                      </div>
+                      <button
+                        onClick={() => setBlogSettings(prev => ({ ...prev, enableComments: !prev.enableComments }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                          blogSettings.enableComments ? 'bg-orange-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            blogSettings.enableComments ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Yorum Onayı</label>
+                        <p className="text-sm text-gray-500">Yorumlar yayınlanmadan önce onay gereksin</p>
+                      </div>
+                      <button
+                        onClick={() => setBlogSettings(prev => ({ ...prev, moderateComments: !prev.moderateComments }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                          blogSettings.moderateComments ? 'bg-orange-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            blogSettings.moderateComments ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Misafir Yorumları</label>
+                        <p className="text-sm text-gray-500">Üye olmayan kullanıcıların yorum yapmasına izin ver</p>
+                      </div>
+                      <button
+                        onClick={() => setBlogSettings(prev => ({ ...prev, allowGuestComments: !prev.allowGuestComments }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                          blogSettings.allowGuestComments ? 'bg-orange-600' : 'bg-gray-200'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            blogSettings.allowGuestComments ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Sayfa Başına Yazı
+                      </label>
+                      <input
+                        type="number"
+                        value={blogSettings.postsPerPage}
+                        onChange={(e) => setBlogSettings(prev => ({ ...prev, postsPerPage: parseInt(e.target.value) }))}
+                        className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        min="1"
+                        max="50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Varsayılan Kategori
+                      </label>
+                      <input
+                        type="text"
+                        value={blogSettings.defaultCategory}
+                        onChange={(e) => setBlogSettings(prev => ({ ...prev, defaultCategory: e.target.value }))}
+                        className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Varsayılan Yazar
+                      </label>
+                      <input
+                        type="text"
+                        value={blogSettings.defaultAuthor}
+                        onChange={(e) => setBlogSettings(prev => ({ ...prev, defaultAuthor: e.target.value }))}
+                        className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleSaveBlogSettings}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                    disabled={isSaving}
+                  >
+                    <FaSave className="mr-2" />
+                    {isSaving ? 'Kaydediliyor...' : 'Blog Ayarlarını Kaydet'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2134,7 +2655,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                     onClick={handleSendTestEmail}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-4 py-2 bg-orange-600 text-white rounded-r-md hover:bg-orange-700 transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500"
                     disabled={isSaving}
                 >
                     {isSaving ? 'Gönderiliyor...' : 'Test E-postası Gönder'}
@@ -2924,248 +3445,6 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {selectedTab === 'services' && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Hizmetler</h2>
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700"
-                >
-                  Yeni Hizmet Ekle
-                </button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Hizmet Adı
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Açıklama
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Açılış Fiyatı (TL)
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        KM Fiyatı (TL)
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Max. KM
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Şehir İçi/Dışı
-                      </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Durum
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        İşlemler
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {services.map((service) => (
-                      <tr key={service.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{service.name}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-500">{service.description}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{service.price} TL</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{service.pricePerKm} TL</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{service.maxKm} km</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex flex-col items-start space-y-1">
-                            <div className="flex items-center">
-                              <span className={`inline-block w-2 h-2 rounded-full mr-1 ${service.isInnerCity ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                              <span className="text-sm text-gray-600">Şehir İçi</span>
-                            </div>
-                            <div className="flex items-center">
-                              <span className={`inline-block w-2 h-2 rounded-full mr-1 ${service.isOuterCity ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-                              <span className="text-sm text-gray-600">Şehir Dışı</span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex justify-end items-center space-x-2">
-                            <button
-                              onClick={() => handleServiceStatusChange(service._id)}
-                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
-                                service.isActive ? 'bg-orange-600' : 'bg-gray-200'
-                              }`}
-                            >
-                              <span
-                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                  service.isActive ? 'translate-x-6' : 'translate-x-1'
-                                }`}
-                              />
-                            </button>
-                            <span className="text-sm text-gray-500">
-                              {service.isActive ? 'Aktif' : 'Pasif'}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex items-center justify-end space-x-3">
-                            <button 
-                              onClick={() => handleEditClick(service)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              <FaEdit className="h-5 w-5" />
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteService(service._id)}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              <FaTrash className="h-5 w-5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {selectedTab === 'blog' && (
-            <div>
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">Blog Ayarları</h2>
-              
-              <div className="space-y-6">
-                <div className="bg-white p-6 rounded-lg shadow">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Genel Ayarlar</h3>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">Yorumlar</label>
-                        <p className="text-sm text-gray-500">Blog yazılarında yorum yapılmasına izin ver</p>
-                      </div>
-                      <button
-                        onClick={() => setBlogSettings(prev => ({ ...prev, enableComments: !prev.enableComments }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
-                          blogSettings.enableComments ? 'bg-orange-600' : 'bg-gray-200'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            blogSettings.enableComments ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">Yorum Onayı</label>
-                        <p className="text-sm text-gray-500">Yorumlar yayınlanmadan önce onay gereksin</p>
-                      </div>
-                      <button
-                        onClick={() => setBlogSettings(prev => ({ ...prev, moderateComments: !prev.moderateComments }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
-                          blogSettings.moderateComments ? 'bg-orange-600' : 'bg-gray-200'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            blogSettings.moderateComments ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <label className="text-sm font-medium text-gray-700">Misafir Yorumları</label>
-                        <p className="text-sm text-gray-500">Üye olmayan kullanıcıların yorum yapmasına izin ver</p>
-                      </div>
-                      <button
-                        onClick={() => setBlogSettings(prev => ({ ...prev, allowGuestComments: !prev.allowGuestComments }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
-                          blogSettings.allowGuestComments ? 'bg-orange-600' : 'bg-gray-200'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            blogSettings.allowGuestComments ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Sayfa Başına Yazı
-                      </label>
-                      <input
-                        type="number"
-                        value={blogSettings.postsPerPage}
-                        onChange={(e) => setBlogSettings(prev => ({ ...prev, postsPerPage: parseInt(e.target.value) }))}
-                        className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        min="1"
-                        max="50"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Varsayılan Kategori
-                      </label>
-                      <input
-                        type="text"
-                        value={blogSettings.defaultCategory}
-                        onChange={(e) => setBlogSettings(prev => ({ ...prev, defaultCategory: e.target.value }))}
-                        className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Varsayılan Yazar
-                      </label>
-                      <input
-                        type="text"
-                        value={blogSettings.defaultAuthor}
-                        onChange={(e) => setBlogSettings(prev => ({ ...prev, defaultAuthor: e.target.value }))}
-                        className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => {
-                      // Blog ayarlarını kaydet
-                      setIsSaving(true)
-                      setTimeout(() => {
-                        setIsSaving(false)
-                        setSaveMessage('Blog ayarları başarıyla kaydedildi')
-                        setTimeout(() => setSaveMessage(''), 3000)
-                      }, 1000)
-                    }}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-                    disabled={isSaving}
-                  >
-                    <FaSave className="mr-2" />
-                    {isSaving ? 'Kaydediliyor...' : 'Blog Ayarlarını Kaydet'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {selectedTab === 'campaigns' && (
             <div>
               <h2 className="text-xl font-semibold text-gray-800 mb-4">Kampanya Ayarları</h2>
@@ -3181,7 +3460,7 @@ export default function SettingsPage() {
                         <p className="text-sm text-gray-500">Kampanya sistemini aktif et</p>
                       </div>
                       <button
-                        onClick={() => setCampaignSettings(prev => ({ ...prev, enableCampaigns: !prev.enableCampaigns }))}
+                        onClick={() => handleCampaignSettingChange('enableCampaigns', !campaignSettings.enableCampaigns)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
                           campaignSettings.enableCampaigns ? 'bg-orange-600' : 'bg-gray-200'
                         }`}
@@ -3196,30 +3475,11 @@ export default function SettingsPage() {
 
                     <div className="flex items-center justify-between">
                       <div>
-                        <label className="text-sm font-medium text-gray-700">Otomatik Sonlandırma</label>
-                        <p className="text-sm text-gray-500">Kampanyaların süresi dolduğunda otomatik olarak sonlandır</p>
-                      </div>
-                      <button
-                        onClick={() => setCampaignSettings(prev => ({ ...prev, autoExpire: !prev.autoExpire }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
-                          campaignSettings.autoExpire ? 'bg-orange-600' : 'bg-gray-200'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            campaignSettings.autoExpire ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div>
                         <label className="text-sm font-medium text-gray-700">Çoklu Kampanya</label>
                         <p className="text-sm text-gray-500">Bir siparişte birden fazla kampanya kullanılmasına izin ver</p>
                       </div>
                       <button
-                        onClick={() => setCampaignSettings(prev => ({ ...prev, allowMultipleCampaigns: !prev.allowMultipleCampaigns }))}
+                        onClick={() => handleCampaignSettingChange('allowMultipleCampaigns', !campaignSettings.allowMultipleCampaigns)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
                           campaignSettings.allowMultipleCampaigns ? 'bg-orange-600' : 'bg-gray-200'
                         }`}
@@ -3239,200 +3499,163 @@ export default function SettingsPage() {
                       <input
                         type="number"
                         value={campaignSettings.defaultDiscount}
-                        onChange={(e) => setCampaignSettings(prev => ({ ...prev, defaultDiscount: parseInt(e.target.value) }))}
-                        className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        min="1"
-                        max="100"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Maksimum İndirim Oranı (%)
-                      </label>
-                      <input
-                        type="number"
-                        value={campaignSettings.maxDiscount}
-                        onChange={(e) => setCampaignSettings(prev => ({ ...prev, maxDiscount: parseInt(e.target.value) }))}
-                        className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        min="1"
-                        max="100"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Minimum Sipariş Tutarı (TL)
-                      </label>
-                      <input
-                        type="number"
-                        value={campaignSettings.minOrderAmount}
-                        onChange={(e) => setCampaignSettings(prev => ({ ...prev, minOrderAmount: parseInt(e.target.value) }))}
+                        onChange={(e) => handleCampaignSettingChange('defaultDiscount', parseInt(e.target.value))}
                         className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                         min="0"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Varsayılan Kampanya Süresi (Gün)
-                      </label>
-                      <input
-                        type="number"
-                        value={campaignSettings.defaultCampaignDuration}
-                        onChange={(e) => setCampaignSettings(prev => ({ ...prev, defaultCampaignDuration: parseInt(e.target.value) }))}
-                        className="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                        min="1"
-                        max="365"
+                        max="100"
                       />
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="flex justify-end">
+              <div className="mt-4 mb-8">
+                <button
+                  type="button"
+                  onClick={handleSaveCampaignSettings}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                  disabled={isSaving}
+                >
+                  <FaSave className="mr-2" />
+                  {isSaving ? 'Kaydediliyor...' : 'Kampanya Ayarlarını Kaydet'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {selectedTab === 'brands' && (
+            <div className="space-y-6">
+              <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Yeni Marka Ekle</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="brand-name" className="block text-sm font-medium text-gray-700">
+                      Marka Adı
+                    </label>
+                    <input
+                      type="text"
+                      id="brand-name"
+                      value={newBrand.name}
+                      onChange={(e) => setNewBrand({ ...newBrand, name: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="vehicle-type" className="block text-sm font-medium text-gray-700">
+                      Araç Tipi
+                    </label>
+                    <select
+                      id="vehicle-type"
+                      value={newBrand.vehicleType}
+                      onChange={(e) => setNewBrand({ ...newBrand, vehicleType: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                    >
+                      <option value="">Araç Tipi Seçin</option>
+                      {vehicleTypes.map((type) => (
+                        <option key={type._id} value={type._id}>
+                          {type.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label htmlFor="brand-model" className="block text-sm font-medium text-gray-700">
+                      Model (İlk model, opsiyonel)
+                    </label>
+                    <input
+                      type="text"
+                      id="brand-model"
+                      value={newBrandModel}
+                      onChange={(e) => setNewBrandModel(e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                      placeholder="Örn: Corolla, Transit, Sprinter"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4">
                   <button
-                    onClick={() => {
-                      // Kampanya ayarlarını kaydet
-                      setIsSaving(true)
-                      setTimeout(() => {
-                        setIsSaving(false)
-                        setSaveMessage('Kampanya ayarları başarıyla kaydedildi')
-                        setTimeout(() => setSaveMessage(''), 3000)
-                      }, 1000)
-                    }}
+                    onClick={handleAddBrand}
                     className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
-                    disabled={isSaving}
                   >
-                    <FaSave className="mr-2" />
-                    {isSaving ? 'Kaydediliyor...' : 'Kampanya Ayarlarını Kaydet'}
+                    Marka Ekle
                   </button>
                 </div>
               </div>
+
+              <div className="bg-white shadow rounded-lg p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Markalar</h3>
+                {loadingBrands ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto"></div>
+                  </div>
+                ) : brands.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">Henüz marka bulunmuyor.</p>
+                ) : (
+                  <div className="space-y-6">
+                    {brands.map((brand) => (
+                      <div key={brand._id} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h4 className="text-lg font-medium text-gray-900">{brand.name}</h4>
+                            <p className="text-sm text-gray-500">{brand.vehicleType}</p>
+                          </div>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => setEditingBrand(brand)}
+                              className="text-orange-600 hover:text-orange-900"
+                            >
+                              <FaEdit />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteBrand(brand._id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              <FaTrash />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-4">
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">Modeller</h5>
+                          <div className="flex items-center space-x-2 mb-4">
+                            <input
+                              type="text"
+                              value={newModel}
+                              onChange={(e) => setNewModel(e.target.value)}
+                              placeholder="Yeni model adı"
+                              className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                            />
+                            <button
+                              onClick={() => handleAddModel(brand._id)}
+                              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                            >
+                              Ekle
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                            {brand.models.map((model) => (
+                              <div
+                                key={model}
+                                className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-md"
+                              >
+                                <span className="text-sm text-gray-700">{model}</span>
+                                <button
+                                  onClick={() => handleDeleteModel(brand._id, model)}
+                                  className="text-red-600 hover:text-red-900"
+                                >
+                                  <FaTimes />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
-
-          {(selectedTab !== 'general' && selectedTab !== 'security' && selectedTab !== 'email' && selectedTab !== 'notifications' && selectedTab !== 'permissions' && selectedTab !== 'services' && selectedTab !== 'blog' && selectedTab !== 'campaigns') && (
-            <div className="flex flex-col items-center justify-center p-8">
-              <div className="text-center">
-                <h2 className="text-xl font-semibold text-gray-800 mb-2">
-                  {selectedTab === 'database' && 'Veritabanı Ayarları'}
-                  {selectedTab === 'api' && 'API Erişim Ayarları'}
-                  {selectedTab === 'appearance' && 'Görünüm Ayarları'}
-                </h2>
-                <p className="text-gray-600">
-                  Bu bölüm geliştirme aşamasındadır. Çok yakında kullanıma sunulacaktır.
-                </p>
-              </div>
-              <div className="mt-6">
-                <img 
-                  src="/assets/images/under-construction.svg" 
-                  alt="Geliştirme Aşamasında" 
-                  className="w-48 h-48 opacity-50"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Sağ Menü */}
-        <div className="w-full md:w-64 border-l border-gray-200 flex-shrink-0">
-          <nav className="sticky top-0 flex flex-col p-4">
-            <button
-              onClick={() => setSelectedTab('campaigns')}
-              className={`flex items-center p-3 rounded-md mb-2 transition-colors w-full ${
-                selectedTab === 'campaigns' 
-                  ? 'bg-orange-100 text-orange-800' 
-                  : 'hover:bg-gray-100 text-gray-700'
-              }`}
-            >
-              <FaGift className="mr-3" />
-              <span>Kampanyalar</span>
-            </button>
-
-            <button
-              onClick={() => setSelectedTab('general')}
-              className={`flex items-center p-3 rounded-md mb-2 transition-colors w-full ${
-                selectedTab === 'general' 
-                  ? 'bg-orange-100 text-orange-800' 
-                  : 'hover:bg-gray-100 text-gray-700'
-              }`}
-            >
-              <FaDesktop className="mr-3" />
-              <span>Ayarlar</span>
-            </button>
-
-            <button
-              onClick={() => setSelectedTab('blog')}
-              className={`flex items-center p-3 rounded-md mb-2 transition-colors w-full ${
-                selectedTab === 'blog' 
-                  ? 'bg-orange-100 text-orange-800' 
-                  : 'hover:bg-gray-100 text-gray-700'
-              }`}
-            >
-              <FaNewspaper className="mr-3" />
-              <span>Blog</span>
-            </button>
-
-            <button
-              onClick={() => setSelectedTab('security')}
-              className={`flex items-center p-3 rounded-md mb-2 transition-colors w-full ${
-                selectedTab === 'security' 
-                  ? 'bg-orange-100 text-orange-800' 
-                  : 'hover:bg-gray-100 text-gray-700'
-              }`}
-            >
-              <FaShieldAlt className="mr-3" />
-              <span>Güvenlik</span>
-            </button>
-
-            <button
-              onClick={() => setSelectedTab('email')}
-              className={`flex items-center p-3 rounded-md mb-2 transition-colors w-full ${
-                selectedTab === 'email' 
-                  ? 'bg-orange-100 text-orange-800' 
-                  : 'hover:bg-gray-100 text-gray-700'
-              }`}
-            >
-              <FaEnvelope className="mr-3" />
-              <span>E-posta</span>
-            </button>
-
-            <button
-              onClick={() => setSelectedTab('notifications')}
-              className={`flex items-center p-3 rounded-md mb-2 transition-colors w-full ${
-                selectedTab === 'notifications' 
-                  ? 'bg-orange-100 text-orange-800' 
-                  : 'hover:bg-gray-100 text-gray-700'
-              }`}
-            >
-              <FaBell className="mr-3" />
-              <span>Bildirimler</span>
-            </button>
-
-            <button
-              onClick={() => setSelectedTab('permissions')}
-              className={`flex items-center p-3 rounded-md mb-2 transition-colors w-full ${
-                selectedTab === 'permissions' 
-                  ? 'bg-orange-100 text-orange-800' 
-                  : 'hover:bg-gray-100 text-gray-700'
-              }`}
-            >
-              <FaLock className="mr-3" />
-              <span>İzinler</span>
-            </button>
-
-            <button
-              onClick={() => setSelectedTab('services')}
-              className={`flex items-center p-3 rounded-md mb-2 transition-colors w-full ${
-                selectedTab === 'services' 
-                  ? 'bg-orange-100 text-orange-800' 
-                  : 'hover:bg-gray-100 text-gray-700'
-              }`}
-            >
-              <FaPaintBrush className="mr-3" />
-              <span>Hizmetler</span>
-            </button>
-          </nav>
         </div>
       </div>
 
@@ -3891,72 +4114,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Araç Tipleri</h2>
-        <div className="mb-4">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newVehicleType}
-              onChange={(e) => setNewVehicleType(e.target.value)}
-              placeholder="Yeni araç tipi adı"
-              className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-            />
-            <button
-              onClick={handleAddVehicleType}
-              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-            >
-              Ekle
-            </button>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Araç Tipi
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Oluşturulma Tarihi
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  İşlemler
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {vehicleTypes.map((type) => (
-                <tr key={type._id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{type.name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">
-                      {formatDate(type.createdAt)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => handleOpenEditVehicleTypeModal(type)}
-                      className="text-orange-600 hover:text-orange-900 mr-4"
-                    >
-                      Düzenle
-                    </button>
-                    <button
-                      onClick={() => handleDeleteVehicleType(type._id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Sil
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       {/* Araç Tipi Düzenleme Modalı */}
       {showVehicleTypeModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -3970,17 +4127,47 @@ export default function SettingsPage() {
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 mb-4"
             />
             <div className="flex justify-end gap-2">
-              <button
+            <button
                 onClick={handleCloseVehicleTypeModal}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+            >
+                İptal
+            </button>
+                    <button
+                onClick={handleEditVehicleType}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                    >
+                Kaydet
+                    </button>
+        </div>
+      </div>
+        </div>
+      )}
+
+      {/* Araç Tipi Ekleme Modalı */}
+      {showAddVehicleTypeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Yeni Araç Tipi Ekle</h3>
+            <input
+              type="text"
+              value={newVehicleType}
+              onChange={(e) => setNewVehicleType(e.target.value)}
+              placeholder="Araç tipi adı"
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={handleCloseAddVehicleTypeModal}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800"
               >
                 İptal
               </button>
               <button
-                onClick={handleEditVehicleType}
+                onClick={handleAddVehicleType}
                 className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
               >
-                Kaydet
+                Ekle
               </button>
             </div>
           </div>
@@ -4261,6 +4448,71 @@ export default function SettingsPage() {
               >
                 Kaydet
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Marka Düzenleme Modalı */}
+      {editingBrand && (
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Marka Düzenle</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="edit-brand-name" className="block text-sm font-medium text-gray-700">
+                      Marka Adı
+                    </label>
+                    <input
+                      type="text"
+                      id="edit-brand-name"
+                      value={editingBrand.name}
+                      onChange={(e) => setEditingBrand({ ...editingBrand, name: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="edit-vehicle-type" className="block text-sm font-medium text-gray-700">
+                      Araç Tipi
+                    </label>
+                    <select
+                      id="edit-vehicle-type"
+                      value={editingBrand.vehicleType}
+                      onChange={(e) => setEditingBrand({ ...editingBrand, vehicleType: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 sm:text-sm"
+                    >
+                      <option value="">Araç Tipi Seçin</option>
+                      {vehicleTypes.map((type) => (
+                        <option key={type._id} value={type._id}>
+                          {type.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={() => handleEditBrand(editingBrand._id)}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-orange-600 text-base font-medium text-white hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Kaydet
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingBrand(null)}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  İptal
+                </button>
+              </div>
             </div>
           </div>
         </div>

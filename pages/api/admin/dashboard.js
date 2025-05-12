@@ -102,6 +102,7 @@ export default async function handler(req, res) {
           deliveryLocation: shipment.deliveryLocation || shipment.to || 'Belirtilmemiş',
           status: shipment.status || 'Beklemede',
           price: shipment.price || '0',
+          transportType: shipment.transportType || 'Belirtilmemiş',
           createdAt: shipment.createdAt || new Date()
         })),
         recentCompanies: recentCompanies.map(company => ({

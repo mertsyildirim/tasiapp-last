@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
 import { FaUser, FaEnvelope, FaPhone, FaIdCard, FaMapMarkerAlt, FaTruck, FaSave, FaPencilAlt, FaCamera, FaBuilding, FaCreditCard, FaRegAddressCard, FaCity, FaGlobe, FaMapMarkedAlt, FaTimes, FaEdit, FaCheck, FaPlus, FaInfo } from 'react-icons/fa';
 import FreelanceLayout from '../../../components/portal/FreelanceLayout';
+import axios from 'axios';
 
 export default function FreelanceProfile() {
   const router = useRouter();
@@ -43,120 +44,123 @@ export default function FreelanceProfile() {
     try {
       setLoading(true);
       
-      if (!session) {
-        console.log("Oturum bilgisi yok, profil verileri alınamıyor");
-        setLoading(false);
+      // Sadece session kontrolü yap
+      if (status !== 'authenticated') {
+        console.log("Oturum doğrulanamadı, login sayfasına yönlendiriliyor");
+        router.push('/portal/login');
         return;
       }
+
+      console.log("Session bilgileri:", session);
+      console.log("User ID:", session?.user?.id);
+      console.log("Access Token:", session?.accessToken ? "Var" : "Yok");
       
-      // API'yi çağır
-      const response = await fetch('/api/portal/profile');
-      const data = await response.json();
-      
-      if (data.success && data.user) {
-        console.log('Profil verileri başarıyla alındı:', data.user);
-        
-        // Veritabanından gelen verileri uygun formata dönüştür
-        const profileData = {
-          id: data.user.id,
-          name: data.user.name || '',
-          email: data.user.email || '',
-          phone: data.user.phone || '',
-          taxId: data.user.taxNumber || '',
-          company: data.user.company || '',
-          address: data.user.address || '',
-          district: data.user.district || '',
-          city: data.user.city || '',
-          registrationDate: new Date().toISOString(),
-          isFreelance: true,
-          activeStatus: true,
-          verificationStatus: data.user.status || 'verified',
-          rating: data.user.rating || 0,
-          completedTasks: data.user.completedTasks || 0,
-          preferredRoutes: data.user.serviceAreas?.preferredRoutes || [],
-          vehicleTypes: data.user.transportTypes || [],
-          avatar: data.user.avatar || null,
-          notes: data.user.description || '',
-          bankInfo: data.user.bankInfo || {
-            bankName: '',
-            accountHolder: '',
-            iban: '',
-            accountNumber: ''
+      try {
+        // API isteği gönderiliyor
+        console.log("API isteği gönderiliyor...");
+        const response = await axios.get('/api/portal/profile', {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          },
+          params: {
+            userId: session?.user?.id
           }
-        };
+        });
         
-        setProfile(profileData);
-        setFormData(profileData);
-      } else {
-        console.log('API yanıt verdi ancak kullanıcı verisi bulunamadı');
-        // API'den veri gelmezse boş veri kullan
-        const emptyProfile = {
-          id: '',
-          name: '',
-          email: '',
-          phone: '',
-          taxId: '',
-          company: '',
-          address: '',
-          district: '',
-          city: '',
-          registrationDate: new Date().toISOString(),
-          isFreelance: true,
-          activeStatus: true,
-          verificationStatus: 'pending',
-          rating: 0,
-          completedTasks: 0,
-          preferredRoutes: [],
-          vehicleTypes: [],
-          avatar: null,
-          notes: '',
-          bankInfo: {
-            bankName: '',
-            accountHolder: '',
-            iban: '',
-            accountNumber: ''
-          }
-        };
+        console.log("API yanıtı:", response.data);
         
-        setProfile(emptyProfile);
-        setFormData(emptyProfile);
+        if (response.data.success && response.data.user) {
+          console.log('Profil verileri başarıyla alındı:', response.data.user);
+          
+          // Veritabanından gelen verileri uygun formata dönüştür
+          const profileData = {
+            id: response.data.user.id,
+            name: response.data.user.name || '',
+            email: response.data.user.email || '',
+            phone: response.data.user.phone || '',
+            taxId: response.data.user.taxNumber || '',
+            company: response.data.user.company || '',
+            address: response.data.user.address || '',
+            district: response.data.user.district || '',
+            city: response.data.user.city || '',
+            registrationDate: new Date().toISOString(),
+            isFreelance: true,
+            activeStatus: true,
+            verificationStatus: response.data.user.status || 'verified',
+            rating: response.data.user.rating || 0,
+            completedTasks: response.data.user.completedTasks || 0,
+            preferredRoutes: response.data.user.serviceAreas?.preferredRoutes || [],
+            vehicleTypes: response.data.user.transportTypes || [],
+            avatar: response.data.user.avatar || null,
+            notes: response.data.user.description || '',
+            bankInfo: response.data.user.bankInfo || {
+              bankName: '',
+              accountHolder: '',
+              iban: '',
+              accountNumber: ''
+            }
+          };
+          
+          setProfile(profileData);
+          setFormData(profileData);
+        } else {
+          console.log('API yanıt verdi ancak kullanıcı verisi bulunamadı');
+          // API'den veri gelmezse boş veri kullan
+          initializeEmptyProfile();
+        }
+      } catch (apiError) {
+        console.error('API hatası:', apiError);
+        console.error('Hata detayları:', apiError.response?.data);
+        
+        if (apiError.response?.status === 401) {
+          console.log('401 hatası, boş veriler kullanılıyor');
+          initializeEmptyProfile();
+        } else {
+          console.error('Profil verileri alınırken hata:', apiError);
+          initializeEmptyProfile();
+        }
       }
     } catch (error) {
-      console.error('Profil verileri alınırken hata:', error);
-      // Hata durumunda boş veriyi kullan
-      const emptyProfile = {
-        id: '',
-        name: '',
-        email: '',
-        phone: '',
-        taxId: '',
-        company: '',
-        address: '',
-        district: '',
-        city: '',
-        registrationDate: new Date().toISOString(),
-        isFreelance: true,
-        activeStatus: true,
-        verificationStatus: 'pending',
-        rating: 0,
-        completedTasks: 0,
-        preferredRoutes: [],
-        vehicleTypes: [],
-        avatar: null,
-        notes: '',
-        bankInfo: {
-          bankName: '',
-          accountHolder: '',
-          iban: '',
-          accountNumber: ''
-        }
-      };
-      
-      setProfile(emptyProfile);
-      setFormData(emptyProfile);
+      console.error('Genel hata:', error);
+      initializeEmptyProfile();
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Boş profil verisi oluşturma fonksiyonu
+  const initializeEmptyProfile = () => {
+    const emptyProfile = {
+      id: '',
+      name: '',
+      email: '',
+      phone: '',
+      taxId: '',
+      company: '',
+      address: '',
+      district: '',
+      city: '',
+      registrationDate: new Date().toISOString(),
+      isFreelance: true,
+      activeStatus: true,
+      verificationStatus: 'pending',
+      rating: 0,
+      completedTasks: 0,
+      preferredRoutes: [],
+      vehicleTypes: [],
+      avatar: null,
+      notes: '',
+      bankInfo: {
+        bankName: '',
+        accountHolder: '',
+        iban: '',
+        accountNumber: ''
+      }
+    };
+    
+    setProfile(emptyProfile);
+    setFormData(emptyProfile);
   };
 
   useEffect(() => {
@@ -235,23 +239,21 @@ export default function FreelanceProfile() {
         }
       };
 
-      // API'ye gönder
-      const response = await fetch('/api/portal/profile', {
-        method: 'PUT',
+      // API'ye gönder - axios kullanarak
+      const response = await axios.put('/api/portal/profile', userData, {
         headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
+          'Authorization': `Bearer ${session?.accessToken}`,
+          'x-user-id': session?.user?.id
+        }
       });
 
-      const data = await response.json();
-
-      if (data.success) {
+      if (response.data.success) {
         // Profil verilerini güncelle
         setProfile(formData);
         setIsEditing(false);
+        alert('Profil bilgileriniz başarıyla güncellendi');
       } else {
-        alert('Profil güncellenirken bir hata oluştu: ' + data.message);
+        alert('Profil güncellenirken bir hata oluştu: ' + response.data.message);
       }
     } catch (error) {
       console.error('Profil güncelleme hatası:', error);
@@ -287,31 +289,29 @@ export default function FreelanceProfile() {
         preferredRoutes: selectedRoutes
       }));
       
-      // API'ye gönder
-      const response = await fetch('/api/portal/service-areas', {
-        method: 'POST',
+      // API'ye gönder - axios kullanarak
+      const response = await axios.post('/api/portal/service-areas', {
+        preferredRoutes: selectedRoutes,
+        // tasiapp.com/portal/profile formatına uygun olması için
+        serviceAreas: {
+          preferredRoutes: selectedRoutes
+        }
+      }, {
         headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          preferredRoutes: selectedRoutes,
-          // tasiapp.com/portal/profile formatına uygun olması için
-          serviceAreas: {
-            preferredRoutes: selectedRoutes
-          }
-        }),
+          'Authorization': `Bearer ${session?.accessToken}`,
+          'x-user-id': session?.user?.id
+        }
       });
 
-      const data = await response.json();
-
-      if (data.success) {
+      if (response.data.success) {
         setProfile(prev => ({
           ...prev,
           preferredRoutes: selectedRoutes
         }));
         setShowRoutesModal(false);
+        alert('Tercih edilen rotalar başarıyla güncellendi');
       } else {
-        alert('Tercih edilen rotalar güncellenirken bir hata oluştu: ' + data.message);
+        alert('Tercih edilen rotalar güncellenirken bir hata oluştu: ' + response.data.message);
       }
     } catch (error) {
       console.error('Rotalar kaydetme hatası:', error);
@@ -331,27 +331,25 @@ export default function FreelanceProfile() {
         vehicleTypes: selectedVehicles
       }));
       
-      // API'ye gönder
-      const response = await fetch('/api/portal/transport-types', {
-        method: 'POST',
+      // API'ye gönder - axios kullanarak
+      const response = await axios.post('/api/portal/transport-types', {
+        transportTypes: selectedVehiclesIds, // API'ye ID'leri gönderiyoruz
+      }, {
         headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          transportTypes: selectedVehiclesIds, // API'ye ID'leri gönderiyoruz
-        }),
+          'Authorization': `Bearer ${session?.accessToken}`,
+          'x-user-id': session?.user?.id
+        }
       });
 
-      const data = await response.json();
-
-      if (data.success) {
+      if (response.data.success) {
         setProfile(prev => ({
           ...prev,
           vehicleTypes: selectedVehicles
         }));
         setShowVehiclesModal(false);
+        alert('Araç tipleri başarıyla güncellendi');
       } else {
-        alert('Araç tipleri güncellenirken bir hata oluştu: ' + data.message);
+        alert('Araç tipleri güncellenirken bir hata oluştu: ' + response.data.message);
       }
     } catch (error) {
       console.error('Araç tipleri kaydetme hatası:', error);

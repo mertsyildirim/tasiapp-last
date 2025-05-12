@@ -17,38 +17,73 @@ export default async function handler(req, res) {
     // GET: Tüm araç tiplerini getir
     if (req.method === 'GET') {
       try {
-        const vehicleTypes = await db.collection('vehicleTypes').find({}).toArray()
-        return res.status(200).json(vehicleTypes)
+        const vehicleTypes = await db.collection('vehicleTypes')
+          .find({})
+          .sort({ name: 1 }) // İsme göre sırala
+          .toArray();
+
+        // İsteğe bağlı filtreleme
+        if (req.query.search) {
+          const searchTerm = req.query.search.toLowerCase();
+          return res.status(200).json(
+            vehicleTypes.filter(type => 
+              type.name.toLowerCase().includes(searchTerm)
+            )
+          );
+        }
+
+        return res.status(200).json(vehicleTypes);
       } catch (error) {
-        console.error('Araç tipleri getirme hatası:', error)
-        return res.status(500).json({ error: 'Araç tipleri getirilirken bir hata oluştu' })
+        console.error('Araç tipleri getirme hatası:', error);
+        return res.status(500).json({ 
+          error: 'Araç tipleri getirilirken bir hata oluştu',
+          details: error.message 
+        });
       }
     }
 
     // POST: Yeni araç tipi ekle
     if (req.method === 'POST') {
       try {
+        // Oturum kontrolünü tekrar yapalım (POST işlemi için de güvenlik)
+        const session = await getServerSession(req, res, authOptions)
+        if (!session) {
+          return res.status(401).json({ error: 'Oturum açmanız gerekiyor' })
+        }
+
         const { name } = req.body
 
         if (!name || !name.trim()) {
           return res.status(400).json({ error: 'Araç tipi adı gereklidir' })
         }
 
-        const result = await db.collection('vehicleTypes').insertOne({
+        // Aynı isimde araç tipi var mı kontrol et
+        const existingType = await db.collection('vehicleTypes').findOne({
+          name: name.trim()
+        });
+
+        if (existingType) {
+          return res.status(400).json({ error: 'Bu isimde bir araç tipi zaten mevcut' });
+        }
+
+        const vehicleTypeDoc = {
           name: name.trim(),
           createdAt: new Date(),
           updatedAt: new Date()
-        })
+        };
+
+        const result = await db.collection('vehicleTypes').insertOne(vehicleTypeDoc);
 
         return res.status(201).json({
           _id: result.insertedId,
-          name: name.trim(),
-          createdAt: new Date(),
-          updatedAt: new Date()
-        })
+          ...vehicleTypeDoc
+        });
       } catch (error) {
         console.error('Araç tipi ekleme hatası:', error)
-        return res.status(500).json({ error: 'Araç tipi eklenirken bir hata oluştu' })
+        return res.status(500).json({ 
+          error: 'Araç tipi eklenirken bir hata oluştu',
+          details: error.message
+        })
       }
     }
 

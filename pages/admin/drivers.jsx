@@ -579,42 +579,125 @@ export default function DriversPage() {
         <div className={showDriverDetailModal || showDriverDocumentsModal || showAddDriverModal || showEditDriverModal || showDeleteConfirm ? "blur-sm" : ""}>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <div className="w-full">
-              <div className="flex space-x-2 flex-wrap mb-4">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setSelectedTab(tab.id)}
-                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      selectedTab === tab.id
-                        ? 'bg-orange-100 text-orange-800'
-                        : 'bg-white text-gray-700 hover:bg-gray-100'
-                    } mb-2`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-              <form onSubmit={(e) => { e.preventDefault(); fetchDrivers(); }} className="flex flex-col md:flex-row gap-2">
-                <div className="relative w-full md:w-auto">
-                  <input
-                    type="text"
-                    placeholder="Sürücü ara... (İsim, email, telefon, şirket)"
-                    className="pl-10 pr-4 py-2 w-full md:min-w-[350px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                </div>
-                <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Ara</button>
+              <div className="flex space-x-2 flex-wrap">
                 <button
-                  type="button"
-                  onClick={() => setShowAddDriverModal(true)}
-                  className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2"
+                  onClick={() => setSelectedTab('all')}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedTab === 'all' 
+                      ? 'bg-orange-100 text-orange-800' 
+                      : 'bg-white text-gray-700 hover:bg-gray-100'
+                  } mb-2`}
                 >
-                  <FaPlus className="text-sm" />
-                  <span>Yeni Sürücü</span>
+                  Tüm Sürücüler
                 </button>
-              </form>
+                <button
+                  onClick={() => setSelectedTab('active')}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedTab === 'active' 
+                      ? 'bg-orange-100 text-orange-800' 
+                      : 'bg-white text-gray-700 hover:bg-gray-100'
+                  } mb-2`}
+                >
+                  Çevrimiçi
+                </button>
+                <button
+                  onClick={() => setSelectedTab('on_delivery')}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedTab === 'on_delivery' 
+                      ? 'bg-orange-100 text-orange-800' 
+                      : 'bg-white text-gray-700 hover:bg-gray-100'
+                  } mb-2`}
+                >
+                  Taşımada
+                </button>
+                <button
+                  onClick={() => setSelectedTab('offline')}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    selectedTab === 'offline' 
+                      ? 'bg-orange-100 text-orange-800' 
+                      : 'bg-white text-gray-700 hover:bg-gray-100'
+                  } mb-2`}
+                >
+                  Çevrimdışı
+                </button>
+              </div>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); fetchDrivers(); }} className="flex flex-col md:flex-row gap-2">
+              <div className="relative w-full md:w-auto">
+                <input
+                  type="text"
+                  placeholder="Sürücü ara... (İsim, email, telefon, şirket)"
+                  className="pl-10 pr-4 py-2 w-full md:min-w-[350px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <FaSearch className="absolute left-3 top-[30%] transform -translate-y-1/2 text-gray-400 text-lg" />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddDriverModal(true)}
+                className="bg-orange-600 text-white px-4 py-2.5 rounded-lg hover:bg-orange-700 flex items-center gap-2 text-sm font-medium whitespace-nowrap"
+              >
+                <FaPlus className="text-sm" />
+                <span>Yeni Sürücü</span>
+              </button>
+            </form>
+          </div>
+
+          {/* İstatistik Kutuları */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-gray-500 text-sm">Tüm Sürücüler</h3>
+                  <p className="text-2xl font-semibold text-gray-900">{totalDrivers}</p>
+                </div>
+                <div className="bg-orange-100 p-3 rounded-full">
+                  <FaTruck className="text-orange-600 text-xl" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-gray-500 text-sm">Aktif Sürücüler</h3>
+                  <p className="text-2xl font-semibold text-gray-900">
+                    {drivers.filter(driver => driver.status === 'active').length}
+                  </p>
+                </div>
+                <div className="bg-green-100 p-3 rounded-full">
+                  <FaCheck className="text-green-600 text-xl" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-gray-500 text-sm">Taşımada</h3>
+                  <p className="text-2xl font-semibold text-gray-900">
+                    {drivers.filter(driver => driver.status === 'on_delivery').length}
+                  </p>
+                </div>
+                <div className="bg-blue-100 p-3 rounded-full">
+                  <FaTruck className="text-blue-600 text-xl" />
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-gray-500 text-sm">Belge Bekleyen</h3>
+                  <p className="text-2xl font-semibold text-gray-900">
+                    {drivers.filter(driver => driver.hasExpiredDocuments).length}
+                  </p>
+                </div>
+                <div className="bg-yellow-100 p-3 rounded-full">
+                  <FaFileAlt className="text-yellow-600 text-xl" />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -720,7 +803,7 @@ export default function DriversPage() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <div className="flex space-x-2">
                               <button 
-                                className="text-blue-600 hover:text-blue-900 transition-colors" 
+                                className="text-orange-600 hover:text-orange-900 transition-colors" 
                                 onClick={() => setShowDriverDetailModal(driver)}
                                 title="Detaylar"
                               >

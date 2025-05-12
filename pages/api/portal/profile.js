@@ -127,46 +127,36 @@ export default async function handler(req, res) {
         }
         
         if (!company) {
-          console.log("İlk companies belgesini dönüyoruz");
-          // Hiçbir şekilde bulamazsak ilk company belgesini alalım
-          company = await db.collection('companies').findOne({});
-          
-          if (!company) {
-            console.log("Şirket bulunamadı:", userId);
-            // Tüm şirketleri listeleyelim
-            const allCompanies = await db.collection('companies').find({}).limit(5).toArray();
-            console.log("Veritabanındaki ilk 5 şirket:", JSON.stringify(allCompanies, null, 2));
-            
-            // 404 yerine boş profil döndürelim
-            return res.status(200).json({
-              success: true,
-              user: {
-                id: '',
-                name: '',
-                email: session?.user?.email || '',
-                phone: '',
-                company: '',
-                taxNumber: '',
-                taxOffice: '',
-                address: '',
-                district: '',
-                city: '',
-                description: '',
-                transportTypes: [],
-                serviceAreas: {
-                  pickup: [],
-                  delivery: []
-                },
-                documents: [],
-                bankInfo: {
-                  bankName: '',
-                  accountHolder: '',
-                  iban: '',
-                  accountNumber: ''
-                }
+          console.log("Şirket bulunamadı:", userId, "Email:", session?.user?.email);
+          // Hiçbir şekilde kullanıcı bulunamadıysa boş profil döndür
+          return res.status(200).json({
+            success: true,
+            user: {
+              id: '',
+              name: '',
+              email: session?.user?.email || '',
+              phone: '',
+              company: '',
+              taxNumber: '',
+              taxOffice: '',
+              address: '',
+              district: '',
+              city: '',
+              description: '',
+              transportTypes: [],
+              serviceAreas: {
+                pickup: [],
+                delivery: []
+              },
+              documents: [],
+              bankInfo: {
+                bankName: '',
+                accountHolder: '',
+                iban: '',
+                accountNumber: ''
               }
-            });
-          }
+            }
+          });
         }
         
         console.log("Şirket bulundu:", company._id);

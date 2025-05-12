@@ -140,6 +140,9 @@ const BlogPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
+      console.log('Seçili post:', selectedPost);
+      console.log('Form verisi:', formData);
+      
       const url = showEditModal 
         ? `/api/admin/blog/${selectedPost._id}`
         : '/api/admin/blog'
@@ -154,6 +157,9 @@ const BlogPage = () => {
           .replace(/ +/g, '-')
       }
       
+      console.log('İstek URL:', url);
+      console.log('İstek metodu:', method);
+      
       const response = await fetch(url, {
         method,
         headers: {
@@ -164,15 +170,20 @@ const BlogPage = () => {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json();
+        console.error('API yanıt hatası:', errorData);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error || 'Bilinmeyen hata'}`);
       }
+
+      const result = await response.json();
+      console.log('API yanıtı:', result);
 
       setShowAddModal(false)
       setShowEditModal(false)
       loadBlogPosts()
     } catch (error) {
       console.error('Blog yazısı kaydedilirken hata:', error)
-      alert('Blog yazısı kaydedilirken bir hata oluştu.')
+      alert('Blog yazısı kaydedilirken bir hata oluştu: ' + error.message)
     }
   }
 
@@ -180,7 +191,7 @@ const BlogPage = () => {
     const { name, value, type, checked } = e.target
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: name === 'isPublished' ? value === 'true' : (type === 'checkbox' ? checked : value)
     }))
   }
 
@@ -461,10 +472,16 @@ const BlogPage = () => {
         )}
       </div>
 
-        {/* Blog Yazısı Ekleme/Düzenleme Modal */}
+      {/* Modal bileşenleri */}
         {(showAddModal || showEditModal) && (
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg max-w-4xl w-full p-6">
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <div className="relative inline-block align-middle bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              {/* Modal içeriği */}
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
               <h2 className="text-lg font-medium text-gray-900 mb-4">
                 {showAddModal ? 'Yeni Blog Yazısı' : 'Blog Yazısını Düzenle'}
               </h2>
@@ -520,8 +537,8 @@ const BlogPage = () => {
                       onChange={handleChange}
                       className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-orange-500 focus:border-orange-500"
                     >
-                    <option value={true}>Yayında</option>
-                    <option value={false}>Taslak</option>
+                    <option value="true">Yayında</option>
+                    <option value="false">Taslak</option>
                     </select>
                   </div>
                 </div>
@@ -547,6 +564,8 @@ const BlogPage = () => {
                   </button>
                 </div>
               </form>
+              </div>
+            </div>
             </div>
           </div>
         )}

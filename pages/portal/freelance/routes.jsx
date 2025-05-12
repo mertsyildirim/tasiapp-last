@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
-import { FaMapMarkedAlt, FaRoute, FaCalendarAlt, FaMapMarkerAlt, FaClock, FaTruck, FaFilter, FaSearch, FaPlus, FaEye, FaEyeSlash, FaDirections, FaTimes } from 'react-icons/fa';
+import { FaMapMarkedAlt, FaRoute, FaCalendarAlt, FaMapMarkerAlt, FaClock, FaTruck, FaFilter, FaSearch, FaPlus, FaEye, FaEyeSlash, FaDirections, FaTimes, FaUser } from 'react-icons/fa';
 import Link from 'next/link';
 import FreelanceLayout from '../../../components/portal/FreelanceLayout';
+import axios from 'axios';
 
 export default function FreelanceRoutes() {
   const router = useRouter();
@@ -28,11 +29,10 @@ export default function FreelanceRoutes() {
     
     console.log("Freelance Routes - Session durumu:", status, "Session:", session);
     
-    if (!session) {
-      // Oturum yoksa boş verilerle devam et
-      setRoutes([]);
-      setFilteredRoutes([]);
-      setLoading(false);
+    // Oturum yoksa login sayfasına yönlendir
+    if (status !== 'authenticated') {
+      console.log("Oturum doğrulanamadı, login sayfasına yönlendiriliyor");
+      router.push('/portal/login');
       return;
     }
 
@@ -40,29 +40,45 @@ export default function FreelanceRoutes() {
     const fetchRoutes = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/portal/freelance-routes');
-        const data = await response.json();
+        console.log("API isteği gönderiliyor...");
+        const response = await axios.get('/api/portal/freelance-routes', {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          },
+          params: {
+            userId: session?.user?.id
+          }
+        });
         
-        if (data.success) {
-          console.log('Rotalar başarıyla alındı:', data);
+        console.log('API yanıtı:', response.data);
+        
+        if (response.data.success) {
+          console.log('Rotalar başarıyla alındı:', response.data);
           
           // API'den gelen verileri ata
-          setRoutes(data.routes || []);
-          setFilteredRoutes(data.routes || []);
+          setRoutes(response.data.routes || []);
+          setFilteredRoutes(response.data.routes || []);
         } else {
-          console.error('Rota verisi alınamadı:', data.message);
+          console.error('Rota verisi alınamadı:', response.data.message);
           // Hata durumunda boş veri göster
-          setRoutes([]);
-          setFilteredRoutes([]);
+          initializeEmptyData();
         }
       } catch (error) {
         console.error('Rota verisi alınırken hata:', error);
+        console.error('Hata detayları:', error.response?.data);
+        
         // Hata durumunda boş veri göster
-        setRoutes([]);
-        setFilteredRoutes([]);
+        initializeEmptyData();
       } finally {
         setLoading(false);
       }
+    };
+    
+    // Boş rota verisi oluşturma fonksiyonu
+    const initializeEmptyData = () => {
+      setRoutes([]);
+      setFilteredRoutes([]);
     };
 
     fetchRoutes();
@@ -99,6 +115,33 @@ export default function FreelanceRoutes() {
       <FreelanceLayout title="Rotalarım">
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+        </div>
+      </FreelanceLayout>
+    );
+  }
+  
+  // Oturum açılmamış
+  if (status === 'unauthenticated') {
+    return (
+      <FreelanceLayout title="Rotalarım">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <div className="bg-white shadow-md rounded-lg p-6 max-w-md w-full">
+            <div className="text-center mb-4">
+              <FaUser className="mx-auto h-12 w-12 text-orange-500" />
+              <h3 className="mt-2 text-lg font-medium text-gray-900">Oturum Açmanız Gerekiyor</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Rotalarınızı görüntülemek için lütfen giriş yapın.
+              </p>
+            </div>
+            <div className="mt-5">
+              <button
+                onClick={() => router.push('/portal/login')}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+              >
+                Giriş Yap
+              </button>
+            </div>
+          </div>
         </div>
       </FreelanceLayout>
     );

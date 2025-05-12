@@ -3,6 +3,7 @@ import { setupCORS, handleOptionsRequest, sendSuccess, sendError, logRequest } f
 import { getServerSession } from "next-auth/next";
 import { authOptions } from '../auth/admin/[...nextauth].js';
 import { ObjectId } from 'mongodb';
+import nodemailer from 'nodemailer';
 
 export default async function handler(req, res) {
   // CORS ayarları
@@ -95,7 +96,7 @@ async function getNotifications(req, res, db, userId) {
 }
 
 async function createNotification(req, res, db, userId) {
-  const { title, message, type = 'info', recipientId, recipientType = 'user' } = req.body;
+  const { title, message, type = 'info', recipientId, recipientType = 'user', sendEmail } = req.body;
 
   if (!title || !message) {
     return res.status(400).json({
@@ -116,6 +117,56 @@ async function createNotification(req, res, db, userId) {
   };
 
   const result = await db.collection('notifications').insertOne(notification);
+
+  // Eğer e-posta da gönderilecekse
+  if (sendEmail) {
+    try {
+      // E-posta ayarlarını al
+      const emailSettings = await db.collection('settings').findOne({ type: 'email' });
+      if (!emailSettings) {
+        throw new Error('E-posta ayarları bulunamadı.');
+      }
+
+      // Alıcı e-posta adresini bul
+      let recipientEmail = null;
+      if (recipientType === 'user' && recipientId) {
+        const user = await db.collection('users').findOne({ _id: new ObjectId(recipientId) });
+        recipientEmail = user?.email;
+      }
+      // Eğer kullanıcıya değilse veya e-posta yoksa, sistem yöneticisine gönder
+      if (!recipientEmail) {
+        const admin = await db.collection('settings').findOne({ type: 'general' });
+        recipientEmail = admin?.contactEmail || emailSettings.senderEmail;
+      }
+
+      if (recipientEmail) {
+        const transporter = nodemailer.createTransport({
+          host: emailSettings.smtpHost,
+          port: parseInt(emailSettings.smtpPort),
+          secure: emailSettings.useSSL,
+          auth: {
+            user: emailSettings.smtpUser,
+            pass: emailSettings.smtpPassword
+          },
+          tls: {
+            rejectUnauthorized: false
+          }
+        });
+
+        const mailOptions = {
+          from: `"${emailSettings.senderName}" <${emailSettings.senderEmail}>`,
+          to: recipientEmail,
+          subject: title,
+          html: `<div><h2>${title}</h2><p>${message}</p></div>`
+        };
+
+        await transporter.sendMail(mailOptions);
+      }
+    } catch (err) {
+      console.error('Bildirim e-posta gönderim hatası:', err);
+      // E-posta gönderilemese bile bildirim kaydı başarılı sayılır
+    }
+  }
 
   if (result.acknowledged) {
     return res.status(201).json({

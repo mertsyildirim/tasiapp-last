@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
-import { FaFileAlt, FaUpload, FaDownload, FaEye, FaTrash, FaExclamationTriangle, FaCheck, FaClock, FaPlus, FaSearch, FaTimes } from 'react-icons/fa';
+import { FaFileAlt, FaUpload, FaDownload, FaEye, FaTrash, FaExclamationTriangle, FaCheck, FaClock, FaPlus, FaSearch, FaTimes, FaUser } from 'react-icons/fa';
 import FreelanceLayout from '../../../components/portal/FreelanceLayout';
+import axios from 'axios';
 
 export default function FreelanceDocuments() {
   const router = useRouter();
   const { data: session, status } = useSession({
-    required: true,
-    onUnauthenticated() {
-      router.replace('/portal/login');
-    },
+    required: false,
   });
   
   const [loading, setLoading] = useState(true);
@@ -25,11 +23,10 @@ export default function FreelanceDocuments() {
   useEffect(() => {
     if (status === 'loading') return;
     
-    if (!session) {
-      // Oturum yoksa boş verilerle devam et
-      setDocuments([]);
-      setFilteredDocuments([]);
-      setLoading(false);
+    // Oturum yoksa login sayfasına yönlendir
+    if (status !== 'authenticated') {
+      console.log("Oturum doğrulanamadı, login sayfasına yönlendiriliyor");
+      router.push('/portal/login');
       return;
     }
 
@@ -37,29 +34,45 @@ export default function FreelanceDocuments() {
     const fetchDocuments = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/portal/freelance-documents');
-        const data = await response.json();
+        console.log("API isteği gönderiliyor...");
+        const response = await axios.get('/api/portal/freelance-documents', {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          },
+          params: {
+            userId: session?.user?.id
+          }
+        });
         
-        if (data.success) {
-          console.log('Belgeler başarıyla alındı:', data);
+        console.log('API yanıtı:', response.data);
+        
+        if (response.data.success) {
+          console.log('Belgeler başarıyla alındı:', response.data);
           
           // API'den gelen verileri ata
-          setDocuments(data.documents || []);
-          setFilteredDocuments(data.documents || []);
+          setDocuments(response.data.documents || []);
+          setFilteredDocuments(response.data.documents || []);
         } else {
-          console.error('Belge verisi alınamadı:', data.message);
+          console.error('Belge verisi alınamadı:', response.data.message);
           // Hata durumunda boş veri göster
-          setDocuments([]);
-          setFilteredDocuments([]);
+          initializeEmptyData();
         }
       } catch (error) {
         console.error('Belge verisi alınırken hata:', error);
+        console.error('Hata detayları:', error.response?.data);
+        
         // Hata durumunda boş veri göster
-        setDocuments([]);
-        setFilteredDocuments([]);
+        initializeEmptyData();
       } finally {
         setLoading(false);
       }
+    };
+    
+    // Boş belge verisi oluşturma fonksiyonu
+    const initializeEmptyData = () => {
+      setDocuments([]);
+      setFilteredDocuments([]);
     };
     
     fetchDocuments();
@@ -95,6 +108,33 @@ export default function FreelanceDocuments() {
       <FreelanceLayout title="Belgelerim">
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
+        </div>
+      </FreelanceLayout>
+    );
+  }
+  
+  // Oturum açılmamış
+  if (status === 'unauthenticated') {
+    return (
+      <FreelanceLayout title="Belgelerim">
+        <div className="min-h-screen flex flex-col items-center justify-center p-4">
+          <div className="bg-white shadow-md rounded-lg p-6 max-w-md w-full">
+            <div className="text-center mb-4">
+              <FaUser className="mx-auto h-12 w-12 text-orange-500" />
+              <h3 className="mt-2 text-lg font-medium text-gray-900">Oturum Açmanız Gerekiyor</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Belgelerinizi görüntülemek için lütfen giriş yapın.
+              </p>
+            </div>
+            <div className="mt-5">
+              <button
+                onClick={() => router.push('/portal/login')}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+              >
+                Giriş Yap
+              </button>
+            </div>
+          </div>
         </div>
       </FreelanceLayout>
     );

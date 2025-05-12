@@ -41,15 +41,10 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
     
     if (!session) return;
     
-    // Kullanıcı türü ve freelance kontrolü
-    if (!session.user.isFreelance || session.user.userType !== 'company') {
+    // Sadece freelance kontrolü
+    if (!session.user.isFreelance) {
       console.error("Bu sayfa sadece freelance kullanıcıları içindir");
-      
-      if (session.user.userType === 'driver') {
-        router.replace('/portal/driver/dashboard');
-      } else {
-        router.replace('/portal/dashboard');
-      }
+      router.replace('/portal/dashboard');
     }
   }, [status, session, router]);
 
@@ -715,14 +710,79 @@ export default function FreelanceLayout({ children, title = 'Freelance Portal' }
               </div>
             </div>
             
-            <div className="flex flex-col items-end pr-4">
-              <div className="text-xs font-medium text-gray-500 flex items-center">
-                <FaCalendarAlt className="h-3 w-3 mr-1 text-orange-500" />
-                <span>{formatDate(currentTime)}</span>
+            <div className="flex items-center">
+              <div className="relative mx-1">
+                <button 
+                  className="relative p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                  onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                >
+                  <FaBell className="h-5 w-5" />
+                  {notifications.length > 0 && (
+                    <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-400 ring-2 ring-white"></span>
+                  )}
+                </button>
+                {isNotificationsOpen && (
+                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg overflow-hidden z-50 notifications-dropdown">
+                    <div className="py-1">
+                      {notifications.length > 0 ? (
+                        notifications.map((notification, index) => (
+                          <div key={index} className="px-4 py-2 hover:bg-gray-100">
+                            <p className="text-sm text-gray-800">{notification.message}</p>
+                            <p className="text-xs text-gray-500">{notification.time}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-4 py-2 text-sm text-gray-500">
+                          Bildiriminiz bulunmuyor
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="text-xs font-medium text-gray-500 flex items-center mt-1">
-                <FaClock className="h-3 w-3 mr-1 text-orange-500" />
-                <span>{formatTime(currentTime)}</span>
+              
+              <div className="relative mx-1">
+                <button 
+                  className="relative p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                >
+                  <FaUser className="h-5 w-5" />
+                </button>
+                {isProfileOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg overflow-hidden z-50 profile-dropdown">
+                    <div className="py-1">
+                      <Link
+                        href="/portal/freelance/profile"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Profilim
+                      </Link>
+                      <div className="border-t border-gray-200">
+                        <button
+                          type="button"
+                          onClick={handleSignOut}
+                          className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 focus:outline-none focus:ring-0"
+                        >
+                          <span className="flex items-center">
+                            <FaSignOutAlt className="mr-2 h-4 w-4" />
+                            Çıkış Yap
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex flex-col items-end ml-2 pr-4">
+                <div className="text-xs font-medium text-gray-500 flex items-center">
+                  <FaCalendarAlt className="h-3 w-3 mr-1 text-orange-500" />
+                  <span>{formatDate(currentTime)}</span>
+                </div>
+                <div className="text-xs font-medium text-gray-500 flex items-center mt-1">
+                  <FaClock className="h-3 w-3 mr-1 text-orange-500" />
+                  <span>{formatTime(currentTime)}</span>
+                </div>
               </div>
             </div>
           </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSession, signOut } from 'next-auth/react';
 import Head from 'next/head';
-import { FaTruck, FaRoute, FaMoneyBillWave, FaUser, FaBell, FaCog, FaSignOutAlt, FaBars, FaTimes, FaTachometerAlt, FaClipboardList, FaFileAlt, FaCalendarAlt, FaClock, FaMapMarkedAlt, FaCheckCircle, FaSpinner } from 'react-icons/fa';
+import { FaTruck, FaRoute, FaMoneyBillWave, FaUser, FaBell, FaCog, FaSignOutAlt, FaBars, FaTimes, FaTachometerAlt, FaClipboardList, FaFileAlt, FaCalendarAlt, FaClock, FaMapMarkedAlt, FaCheckCircle, FaSpinner, FaTools, FaExclamationCircle, FaMapMarkerAlt, FaLock, FaLockOpen, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -21,6 +21,9 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', dri
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [isMobile, setIsMobile] = useState(false);
+  const [locationShared, setLocationShared] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
+  const [driverStatus, setDriverStatus] = useState('çevrimdışı');
 
   // Saati güncelle
   useEffect(() => {
@@ -90,6 +93,149 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', dri
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isProfileOpen]);
+
+  // Çevrimiçi durumunu değiştir
+  const toggleOnlineStatus = () => {
+    // Oturum yoksa çevrimiçi durumunu değiştirmiyoruz
+    if (!session) {
+      // Oturum açmadan durum değiştirilemez
+      router.push('/portal/login');
+      return;
+    }
+    
+    setIsOnline(prevStatus => !prevStatus);
+  };
+
+  // Çevrimiçi durum değişikliğini takip et
+  useEffect(() => {
+    if (status === 'loading') return;
+    
+    // Oturum yoksa çevrimiçi durumunu güncellemiyoruz
+    if (!session) {
+      setIsOnline(false);
+      setDriverStatus('çevrimdışı');
+      return;
+    }
+    
+    // Çevrimiçi durum değişikliğini takip et
+    if (isOnline) {
+      setDriverStatus('çevrimiçi');
+    } else {
+      setDriverStatus('çevrimdışı');
+    }
+    
+    // Çevrimiçi durumu localStorage'a kaydet (sayfalar arası geçişlerde korunsun)
+    localStorage.setItem('driverIsOnline', isOnline.toString());
+    
+    // API'ye çevrimiçi durumunu bildir
+    const updateOnlineStatus = async () => {
+      try {
+        console.log(`Çevrimiçi durum değişti: ${isOnline ? 'çevrimiçi' : 'çevrimdışı'}`);
+        
+        // API çağrısı yaparak durum değişikliğini veritabanına kaydet
+        const response = await fetch('/api/portal/update-online-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isOnline })
+        });
+        
+        const data = await response.json();
+        
+        // Yanıtı kontrol et
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.warn('Durum güncellemesi için oturum gerekiyor.');
+            return;
+          }
+          
+          throw new Error(data.message || 'Durum güncellenirken bir hata oluştu');
+        }
+        
+        // Başarılı cevap ama oturum yok mesajı
+        if (data.message && data.message.includes('Oturum açılmadığı için')) {
+          console.log('Bilgi:', data.message);
+          return; // İşlem yapılmadı, devam et
+        }
+        
+        console.log('Durum başarıyla güncellendi:', data.message);
+      } catch (error) {
+        console.error('Durum güncellenirken hata:', error);
+        // Hata durumunda LocalStorage'daki durumu koruyalım
+      }
+    };
+    
+    // Çevrimiçi durum değiştiğinde API'yi çağır
+    updateOnlineStatus();
+  }, [isOnline, session, status]);
+
+  // İlk yüklendiğinde localStorage'dan çevrimiçi durumunu al
+  // ve kullanıcının mevcut durumunu API'den kontrol et
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Oturum yoksa çevrimiçi durumunu değiştirmiyoruz
+    if (status === 'loading') return;
+    
+    if (!session) {
+      setIsOnline(false);
+      return;
+    }
+    
+    // LocalStorage'dan durumları al (sayfa yenileme için)
+    const savedOnlineStatus = localStorage.getItem('driverIsOnline');
+    
+    const fetchUserOnlineStatus = async () => {
+      try {
+        // Kullanıcının mevcut çevrimiçi durumunu API'den kontrol et
+        const response = await fetch('/api/portal/user-status');
+        
+        const data = await response.json();
+        
+        // Yanıtı kontrol et
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.warn('Durum bilgisi alımı için oturum gerekiyor.');
+            // LocalStorage'dan alınan değeri kullan
+            setIsOnline(savedOnlineStatus === 'true');
+            return;
+          }
+          
+          // API hatası durumunda localStorage değerini kullan
+          setIsOnline(savedOnlineStatus === 'true');
+          return;
+        }
+        
+        // Oturumsuz kullanım için API düzgün yanıt verdi mi?
+        if (data.message && data.message.includes('Oturum açılmadığı için')) {
+          console.log('Bilgi:', data.message);
+          // LocalStorage'dan alınan değeri kullan
+          setIsOnline(savedOnlineStatus === 'true');
+          return;
+        }
+        
+        if (data.success) {
+          // API'den gelen durumu state'e ayarla
+          // Eğer LocalStorage'da true varsa, o değeri tercih et
+          // Bu sayede kullanıcı manuel kapatana kadar çevrimiçi kalır
+          if (savedOnlineStatus === 'true') {
+            setIsOnline(true);
+          } else {
+            setIsOnline(data.isOnline);
+          }
+          console.log('Kullanıcı durumu API\'den alındı:', data.isOnline ? 'çevrimiçi' : 'çevrimdışı');
+        } else {
+          // API başarısız olursa localStorage değerini kullan
+          setIsOnline(savedOnlineStatus === 'true');
+        }
+      } catch (error) {
+        console.error('Kullanıcı durumu alınırken hata:', error);
+        // Hata durumunda localStorage değerini kullan
+        setIsOnline(savedOnlineStatus === 'true');
+      }
+    };
+    
+    fetchUserOnlineStatus();
+  }, [session, status]);
 
   // Tarih formatı
   const formatDate = (date) => {
@@ -328,15 +474,21 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', dri
               >
                 <FaBars className="h-6 w-6" />
               </button>
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                driverStatus === 'active' 
-                  ? 'bg-green-100 text-green-800' 
-                  : driverStatus === 'inactive'
-                  ? 'bg-red-100 text-red-800'
-                  : 'bg-yellow-100 text-yellow-800'
-              }`}>
-                {getStatusText(driverStatus)}
-              </span>
+              <div className="flex items-center">
+                <span className={`inline-flex items-center ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                  isOnline ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {driverStatus}
+                </span>
+                <button 
+                  onClick={toggleOnlineStatus}
+                  className={`ml-2 p-1 rounded-full transition-colors duration-200 focus:outline-none ${
+                    isOnline ? 'text-green-500 hover:bg-green-100' : 'text-gray-400 hover:bg-gray-100'
+                  }`}
+                >
+                  {isOnline ? <FaToggleOn className="h-5 w-5" /> : <FaToggleOff className="h-5 w-5" />}
+                </button>
+              </div>
             </div>
             
             <div className="flex flex-col items-end pr-4">
@@ -356,15 +508,22 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', dri
             <div>
               <div className="flex items-center space-x-4">
                 <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                  driverStatus === 'active' 
-                    ? 'bg-green-100 text-green-800' 
-                    : driverStatus === 'inactive'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {getStatusText(driverStatus)}
-                </span>
+                <div className="flex items-center space-x-2">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    isOnline ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {driverStatus}
+                  </span>
+                  <button 
+                    onClick={toggleOnlineStatus}
+                    className={`p-1 rounded-full transition-colors duration-200 focus:outline-none ${
+                      isOnline ? 'text-green-500 hover:bg-green-100' : 'text-gray-400 hover:bg-gray-100'
+                    }`}
+                    title={isOnline ? 'Çevrimdışı ol' : 'Çevrimiçi ol'}
+                  >
+                    {isOnline ? <FaToggleOn className="h-6 w-6" /> : <FaToggleOff className="h-6 w-6" />}
+                  </button>
+                </div>
               </div>
             </div>
             

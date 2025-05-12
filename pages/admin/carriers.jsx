@@ -862,17 +862,20 @@ export default function CarriersPage() {
                     onClick={() => {
                       if (showCarrierDetailModal.driversCount && showCarrierDetailModal.driversCount > 0) {
                         setLoadingDrivers(true);
-                        // API çağrısını burada yapabilirsiniz
-                        // örnek veri:
-                        setTimeout(() => {
-                          setDrivers([
-                            { id: 1, name: 'Ali Yılmaz', phone: '555-123-4567', license: 'B', status: 'active' },
-                            { id: 2, name: 'Mehmet Demir', phone: '555-987-6543', license: 'E', status: 'active' },
-                            { id: 3, name: 'Hasan Kaya', phone: '555-456-7890', license: 'C', status: 'inactive' },
-                          ]);
-                          setLoadingDrivers(false);
-                          setShowCarrierDriversModal(true);
-                        }, 500);
+                        // API'den sürücü verilerini getir
+                        fetch(`/api/admin/carriers/${showCarrierDetailModal._id}/drivers`)
+                          .then(response => response.json())
+                          .then(data => {
+                            if (data.success) {
+                              setDrivers(data.drivers);
+                            }
+                            setLoadingDrivers(false);
+                            setShowCarrierDriversModal(true);
+                          })
+                          .catch(error => {
+                            console.error('Sürücü verileri alınırken hata:', error);
+                            setLoadingDrivers(false);
+                          });
                       }
                     }}
                   >
@@ -898,17 +901,20 @@ export default function CarriersPage() {
                     onClick={() => {
                       if (showCarrierDetailModal.vehiclesCount && showCarrierDetailModal.vehiclesCount > 0) {
                         setLoadingVehicles(true);
-                        // API çağrısını burada yapabilirsiniz
-                        // örnek veri:
-                        setTimeout(() => {
-                          setVehicles([
-                            { id: 1, plate: '34 ABC 123', type: 'Kamyon', brand: 'Mercedes', model: 'Actros', year: 2020, status: 'active' },
-                            { id: 2, plate: '06 XYZ 456', type: 'Tır', brand: 'Volvo', model: 'FH16', year: 2019, status: 'active' },
-                            { id: 3, plate: '35 DEF 789', type: 'Kamyonet', brand: 'Ford', model: 'Transit', year: 2021, status: 'maintenance' },
-                          ]);
-                          setLoadingVehicles(false);
-                          setShowCarrierVehiclesModal(true);
-                        }, 500);
+                        // API'den araç verilerini getir
+                        fetch(`/api/admin/carriers/${showCarrierDetailModal._id}/vehicles`)
+                          .then(response => response.json())
+                          .then(data => {
+                            if (data.success) {
+                              setVehicles(data.vehicles);
+                            }
+                            setLoadingVehicles(false);
+                            setShowCarrierVehiclesModal(true);
+                          })
+                          .catch(error => {
+                            console.error('Araç verileri alınırken hata:', error);
+                            setLoadingVehicles(false);
+                          });
                       }
                     }}
                   >

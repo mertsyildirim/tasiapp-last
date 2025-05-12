@@ -101,22 +101,23 @@ export default async function handler(req, res) {
       case 'PUT':
         try {
           const updateData = req.body;
-          const result = await collection.findOneAndUpdate(
+          const result = await collection.updateOne(
             { _id: campaignId },
-            { $set: { ...updateData, updatedAt: new Date() } },
-            { returnDocument: 'after' }
+            { $set: { ...updateData, updatedAt: new Date() } }
           );
           
-          if (!result.value) {
+          if (result.matchedCount === 0) {
             return res.status(404).json({ 
               success: false, 
               error: 'Kampanya bulunamadı' 
             });
           }
+
+          const updatedCampaign = await collection.findOne({ _id: campaignId });
           
           return res.status(200).json({
             success: true,
-            campaign: result.value
+            campaign: updatedCampaign
           });
         } catch (error) {
           console.error('Kampanya güncellenirken hata:', error);

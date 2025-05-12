@@ -28,43 +28,68 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'Araç tipi adı gereklidir' })
         }
 
-        const result = await db.collection('vehicleTypes').findOneAndUpdate(
+        // MongoDB 6+ için updateOne + findOne kullanımı
+        const updateResult = await db.collection('vehicleTypes').updateOne(
           { _id: new ObjectId(id) },
           {
             $set: {
               name: name.trim(),
               updatedAt: new Date()
             }
-          },
-          { returnDocument: 'after' }
+          }
         )
 
-        if (!result.value) {
+        if (updateResult.matchedCount === 0) {
           return res.status(404).json({ error: 'Araç tipi bulunamadı' })
         }
 
-        return res.status(200).json(result.value)
+        // Güncellenmiş veriyi getir
+        const updatedVehicleType = await db.collection('vehicleTypes').findOne({
+          _id: new ObjectId(id)
+        })
+
+        return res.status(200).json(updatedVehicleType)
       } catch (error) {
         console.error('Araç tipi güncelleme hatası:', error)
-        return res.status(500).json({ error: 'Araç tipi güncellenirken bir hata oluştu' })
+        return res.status(500).json({ 
+          error: 'Araç tipi güncellenirken bir hata oluştu',
+          details: error.message
+        })
       }
     }
 
     // DELETE: Araç tipini sil
     if (req.method === 'DELETE') {
       try {
-        const result = await db.collection('vehicleTypes').findOneAndDelete({
-          _id: new ObjectId(id)
-        })
-
-        if (!result.value) {
-          return res.status(404).json({ error: 'Araç tipi bulunamadı' })
+        // Oturum kontrolünü tekrar yapalım (DELETE işlemi için de güvenlik)
+        const session = await getServerSession(req, res, authOptions)
+        if (!session) {
+          return res.status(401).json({ error: 'Oturum açmanız gerekiyor' })
         }
 
-        return res.status(200).json({ message: 'Araç tipi başarıyla silindi' })
+        console.log('Silinecek araç tipi ID:', id);
+        
+        const result = await db.collection('vehicleTypes').deleteOne({
+          _id: new ObjectId(id)
+        });
+
+        console.log('Silme sonucu:', result);
+
+        if (result.deletedCount === 0) {
+          return res.status(404).json({ error: 'Araç tipi bulunamadı' });
+        }
+
+        return res.status(200).json({ 
+          success: true,
+          message: 'Araç tipi başarıyla silindi' 
+        });
       } catch (error) {
-        console.error('Araç tipi silme hatası:', error)
-        return res.status(500).json({ error: 'Araç tipi silinirken bir hata oluştu' })
+        console.error('Araç tipi silme hatası:', error);
+        return res.status(500).json({ 
+          success: false,
+          error: 'Araç tipi silinirken bir hata oluştu',
+          details: error.message 
+        });
       }
     }
 

@@ -102,27 +102,49 @@ export default async function handler(req, res) {
 
       case 'PUT':
         try {
+          console.log('Gelen blog ID:', id);
+          console.log('Gelen veri:', req.body);
+          
           const updateData = {
             ...req.body,
             updatedAt: new Date()
           };
           
-          const result = await collection.findOneAndUpdate(
+          // ObjectId dönüşümünü kontrol et
+          let blogId;
+          try {
+            blogId = new ObjectId(id);
+          } catch (error) {
+            console.error('ObjectId dönüşüm hatası:', error);
+            return res.status(400).json({ 
+              success: false, 
+              error: 'Geçersiz blog yazısı ID formatı' 
+            });
+          }
+
+          console.log('Aranacak blog ID:', blogId);
+          
+          // findOneAndUpdate yerine updateOne kullanıyoruz
+          const result = await collection.updateOne(
             { _id: blogId },
-            { $set: updateData },
-            { returnDocument: 'after' }
+            { $set: updateData }
           );
           
-          if (!result.value) {
+          console.log('Güncelleme sonucu:', result);
+          
+          if (result.matchedCount === 0) {
             return res.status(404).json({ 
               success: false, 
               error: 'Blog yazısı bulunamadı' 
             });
           }
           
+          // Güncellenmiş blog yazısını getir
+          const updatedBlog = await collection.findOne({ _id: blogId });
+          
           return res.status(200).json({
             success: true,
-            blog: result.value
+            blog: updatedBlog
           });
         } catch (error) {
           console.error('Blog yazısı güncellenirken hata:', error);

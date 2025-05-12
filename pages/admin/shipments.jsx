@@ -37,6 +37,7 @@ export default function ShipmentsPage() {
   const [vehiclePosition, setVehiclePosition] = useState(null)
   const [loading, setLoading] = useState(true)
   const [shipments, setShipments] = useState([])
+  const [packageInfo, setPackageInfo] = useState([])
   const [counts, setCounts] = useState({
     all: 0,
     inProgress: 0,
@@ -62,6 +63,19 @@ export default function ShipmentsPage() {
     googleMapsApiKey: GOOGLE_MAPS_API_KEY
   })
 
+  // Paket bilgilerini yükle
+  const loadPackageInfo = async () => {
+    try {
+      const response = await fetch('/api/admin/package-info');
+      const data = await response.json();
+      if (data.success) {
+        setPackageInfo(data.data);
+      }
+    } catch (error) {
+      console.error('Paket bilgileri yüklenirken hata:', error);
+    }
+  };
+
   // API'den taşımaları getir
   const fetchShipments = async () => {
     try {
@@ -85,20 +99,40 @@ export default function ShipmentsPage() {
 
       const data = await response.json();
       if (data.success) {
-        setShipments(data.shipments || []);
-        setPagination(data.pagination || {
+        setShipments(data.data.shipments || []);
+        setPagination(data.data.pagination || {
           page: 1,
           limit: 10,
           total: 0,
           pages: 0
         });
-        setCounts(data.counts || {
-          all: 0,
-          inProgress: 0,
-          completed: 0,
-          waiting: 0,
-          paymentWaiting: 0,
-          canceled: 0
+        
+        // Tamamlanan taşımaları say
+        const completedCount = (data.data.shipments || []).filter(
+          shipment => shipment.status === 'delivered' || shipment.status === 'Tamamlandı'
+        ).length;
+
+        // Taşınan taşımaları say
+        const inProgressCount = (data.data.shipments || []).filter(
+          shipment => shipment.status === 'in-transit' || shipment.status === 'in_progress' || shipment.status === 'Taşınıyor'
+        ).length;
+
+        // Bekleyen taşımaları say
+        const waitingCount = (data.data.shipments || []).filter(
+          shipment => 
+            shipment.status === 'waiting-pickup' || 
+            shipment.status === 'pending' || 
+            shipment.status === 'Tarih Bekliyor' || 
+            shipment.status === 'Taşıyıcı Ödemesi Bekleniyor'
+        ).length;
+
+        setCounts({
+          all: data.data.shipments?.length || 0,
+          inProgress: inProgressCount,
+          completed: completedCount,
+          waiting: waitingCount,
+          paymentWaiting: data.data.counts?.paymentWaiting || 0,
+          canceled: data.data.counts?.canceled || 0
         });
       } else {
         throw new Error(data.message || 'Sevkiyatlar yüklenirken bir hata oluştu');
@@ -109,6 +143,23 @@ export default function ShipmentsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Paket başlığını bul
+  const findPackageTitle = (packageInfoId) => {
+    if (!packageInfoId || !packageInfo) return packageInfoId;
+    
+    for (const title of packageInfo) {
+      if (title._id === packageInfoId) {
+        return title.name;
+      }
+      for (const subtitle of title.subtitles) {
+        if (subtitle._id === packageInfoId) {
+          return `${title.name} - ${subtitle.name}`;
+        }
+      }
+    }
+    return packageInfoId;
   };
 
   // Sayfa yüklendiğinde, tab veya arama değiştiğinde veya sayfa değiştiğinde taşımaları getir
@@ -205,7 +256,7 @@ export default function ShipmentsPage() {
   // Modal açıldığında harita rotasını çiz
   useEffect(() => {
     if (showShipmentDetailModal && isLoaded) {
-      getRoute(showShipmentDetailModal.from, showShipmentDetailModal.to);
+      getRoute(showShipmentDetailModal.pickupLocation, showShipmentDetailModal.deliveryLocation);
     }
   }, [showShipmentDetailModal, isLoaded]);
 
@@ -302,7 +353,7 @@ export default function ShipmentsPage() {
     
     // 300ms bekleyerek modal açıldıktan sonra rota çizimini başlat
     setTimeout(() => {
-      getRoute(shipment.from, shipment.to);
+      getRoute(shipment.pickupLocation, shipment.deliveryLocation);
     }, 300);
   };
 
@@ -318,18 +369,38 @@ export default function ShipmentsPage() {
   // Durum renkleri
   const getStatusColor = (status) => {
     switch(status) {
-      case 'Tamamlandı':
-        return 'bg-green-100 text-green-800'
-      case 'İptal Edildi':
-        return 'bg-red-100 text-red-800'
-      case 'Taşınıyor':
-        return 'bg-blue-100 text-blue-800'
-      case 'Tarih Bekliyor':
+      case 'waiting-pickup':
         return 'bg-yellow-100 text-yellow-800'
-      case 'Taşıyıcı Ödemesi Bekleniyor':
-        return 'bg-purple-100 text-purple-800'
+      case 'in-transit':
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800'
+      case 'delivered':
+        return 'bg-green-100 text-green-800'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'cancelled':
+        return 'bg-red-100 text-red-800'
       default:
         return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  // Durum metni
+  const getStatusText = (status) => {
+    switch(status) {
+      case 'waiting-pickup':
+        return 'Alım Bekliyor'
+      case 'in-transit':
+      case 'in_progress':
+        return 'Taşınıyor'
+      case 'delivered':
+        return 'Teslim Edildi'
+      case 'pending':
+        return 'Beklemede'
+      case 'cancelled':
+        return 'İptal Edildi'
+      default:
+        return status
     }
   }
 
@@ -488,7 +559,7 @@ export default function ShipmentsPage() {
             </div>
             <div>
               <h3 className="text-gray-500 text-sm">Toplam Taşıma</h3>
-              <p className="text-2xl font-bold">{shipments.length}</p>
+              <p className="text-2xl font-bold">{shipments.length || 0}</p>
             </div>
           </div>
         </div>
@@ -500,7 +571,7 @@ export default function ShipmentsPage() {
             </div>
             <div>
               <h3 className="text-gray-500 text-sm">Tamamlanan</h3>
-              <p className="text-2xl font-bold">{counts.completed}</p>
+              <p className="text-2xl font-bold">{counts.completed || 0}</p>
             </div>
           </div>
         </div>
@@ -512,7 +583,7 @@ export default function ShipmentsPage() {
             </div>
             <div>
               <h3 className="text-gray-500 text-sm">Taşınıyor</h3>
-              <p className="text-2xl font-bold">{counts.inProgress}</p>
+              <p className="text-2xl font-bold">{counts.inProgress || 0}</p>
             </div>
           </div>
         </div>
@@ -524,7 +595,7 @@ export default function ShipmentsPage() {
             </div>
             <div>
               <h3 className="text-gray-500 text-sm">Beklemede</h3>
-              <p className="text-2xl font-bold">{counts.waiting}</p>
+              <p className="text-2xl font-bold">{counts.waiting || 0}</p>
             </div>
           </div>
         </div>
@@ -560,7 +631,7 @@ export default function ShipmentsPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {shipments.map((shipment) => (
                   <tr key={shipment._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{shipment._id.substring(0,6)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{shipment._id.substring(shipment._id.length - 6)}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{shipment.customer}</div>
                       <div className="text-xs text-gray-500">{shipment.customerCompany}</div>
@@ -571,29 +642,40 @@ export default function ShipmentsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        <div className="mb-1">{shipment.from}</div>
+                        <div className="mb-1">{shipment.pickupLocation}</div>
                         <div className="flex items-center">
                           <svg className="w-3 h-3 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
                           </svg>
-                          <span>{shipment.to}</span>
+                          <span>{shipment.deliveryLocation}</span>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        <div>{shipment.cargoType}</div>
+                        <div>{findPackageTitle(shipment.packageInfo)}</div>
                         <div className="text-xs text-gray-500">{shipment.vehicleType}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(shipment.status)}`}>
-                        {shipment.status}
+                        {getStatusText(shipment.status)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{shipment.amount}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(shipment.date).toLocaleDateString('tr-TR')}
+                      {(() => {
+                        const date = new Date(shipment.loadingDateTime);
+                        return isNaN(date.getTime()) 
+                          ? shipment.loadingDateTime 
+                          : date.toLocaleString('tr-TR', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            });
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex space-x-2">
@@ -649,7 +731,7 @@ export default function ShipmentsPage() {
         }}>
           <div className="bg-white rounded-lg shadow-lg w-full max-w-5xl max-h-[90vh] overflow-auto">
             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="font-semibold text-lg">Taşıma #{showShipmentDetailModal._id?.substring(0,6)} - Detaylar</h3>
+              <h3 className="font-semibold text-lg">Taşıma #{showShipmentDetailModal._id?.substring(showShipmentDetailModal._id.length - 6)} - Detaylar</h3>
               <button 
                 onClick={() => setShowShipmentDetailModal(null)}
                 className="text-gray-500 hover:text-gray-700"
@@ -679,11 +761,11 @@ export default function ShipmentsPage() {
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div>
                         <p className="text-sm text-gray-500">Nereden</p>
-                        <p className="font-medium">{showShipmentDetailModal.from}</p>
+                        <p className="font-medium">{showShipmentDetailModal.pickupLocation}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Nereye</p>
-                        <p className="font-medium">{showShipmentDetailModal.to}</p>
+                        <p className="font-medium">{showShipmentDetailModal.deliveryLocation}</p>
                       </div>
                     </div>
 
@@ -691,19 +773,32 @@ export default function ShipmentsPage() {
                       <div>
                         <p className="text-sm text-gray-500">Durum</p>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(showShipmentDetailModal.status)}`}>
-                          {showShipmentDetailModal.status}
+                          {getStatusText(showShipmentDetailModal.status)}
                         </span>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Tarih</p>
-                        <p className="font-medium">{new Date(showShipmentDetailModal.date).toLocaleDateString('tr-TR')}</p>
+                        <p className="font-medium">
+                          {(() => {
+                            const date = new Date(showShipmentDetailModal.loadingDateTime);
+                            return isNaN(date.getTime()) 
+                              ? showShipmentDetailModal.loadingDateTime 
+                              : date.toLocaleString('tr-TR', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                });
+                          })()}
+                        </p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-500">Yük Tipi</p>
-                        <p className="font-medium">{showShipmentDetailModal.cargoType}</p>
+                        <p className="font-medium">{findPackageTitle(showShipmentDetailModal.packageInfo)}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-500">Araç Tipi</p>
@@ -766,14 +861,14 @@ export default function ShipmentsPage() {
                     {isLoaded ? (
                       <GoogleMap
                         mapContainerStyle={{ width: '100%', height: '100%' }}
-                        center={getCoordinatesForCity(showShipmentDetailModal.from)}
+                        center={getCoordinatesForCity(showShipmentDetailModal.pickupLocation)}
                         zoom={8}
                         onLoad={onLoad}
                         onUnmount={onUnmount}
                       >
                         {/* Başlangıç noktası */}
                         <Marker
-                          position={getCoordinatesForCity(showShipmentDetailModal.from)}
+                          position={getCoordinatesForCity(showShipmentDetailModal.pickupLocation)}
                           icon={{
                             url: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
                             scaledSize: new window.google.maps.Size(40, 40)
@@ -782,7 +877,7 @@ export default function ShipmentsPage() {
 
                         {/* Varış noktası */}
                         <Marker
-                          position={getCoordinatesForCity(showShipmentDetailModal.to)}
+                          position={getCoordinatesForCity(showShipmentDetailModal.deliveryLocation)}
                           icon={{
                             url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
                             scaledSize: new window.google.maps.Size(40, 40)

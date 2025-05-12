@@ -1182,68 +1182,38 @@ export default function CustomersPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {/* Örnek taşıma verileri */}
-                      {[...Array(Math.min(showShipmentsModal.orders, 10))].map((_, index) => {
-                        const date = new Date();
-                        date.setDate(date.getDate() - index * 5);
-                        const formattedDate = date.toLocaleDateString('tr-TR');
-                        
-                        const status = index % 3 === 0 ? 'Tamamlandı' : (index % 3 === 1 ? 'Yolda' : 'İptal');
-                        const statusColor = 
-                          status === 'Tamamlandı' ? 'bg-green-100 text-green-800' :
-                          status === 'Yolda' ? 'bg-blue-100 text-blue-800' :
-                          'bg-red-100 text-red-800';
-                        
-                        // Taşıma verilerini oluştur
-                        const shipment = {
-                          id: `${showShipmentsModal.id}00${index + 1}`,
-                          date: formattedDate,
-                          from: 'İstanbul',
-                          to: ['Ankara', 'İzmir', 'Bursa', 'Antalya', 'Konya'][index % 5],
-                          carrier: ['Ahmet Nakliyat', 'Express Taşıma', 'Hızlı Kargo', 'Yıldız Lojistik', 'Profesyonel Taşıma'][index % 5],
-                          amount: `${(Math.floor(Math.random() * 10) + 1) * 1000} ₺`,
-                          status: status,
-                          distance: `${Math.floor(Math.random() * 500) + 100} km`,
-                          duration: `${Math.floor(Math.random() * 8) + 1} saat ${Math.floor(Math.random() * 60)} dakika`,
-                          customer: showShipmentsModal.name,
-                          cargoType: ['Ev Eşyası', 'Ofis Malzemeleri', 'Elektronik', 'Gıda', 'İnşaat Malzemeleri'][index % 5],
-                          pieces: Math.floor(Math.random() * 10) + 1,
-                          notes: 'Lütfen dikkatli taşıyınız, kırılabilir eşyalar mevcut.'
-                        };
-                        
-                        return (
-                          <tr key={index} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              <span 
-                                className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline" 
-                                onClick={() => viewShipmentDetails(shipment)}
-                              >
-                                #{shipment.id}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {formattedDate}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              İstanbul
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {shipment.to}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {shipment.carrier}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {shipment.amount}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}`}>
-                                {status}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {showShipmentsModal.shipments?.map((shipment, index) => (
+                        <tr key={shipment._id || index} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <span 
+                              className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline" 
+                              onClick={() => viewShipmentDetails(shipment)}
+                            >
+                              #{shipment._id?.substring(shipment._id.length - 6) || `TŞM${index+1}`}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(shipment.createdAt).toLocaleDateString('tr-TR')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {shipment.pickupLocation || shipment.from}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {shipment.deliveryLocation || shipment.to}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {shipment.carrierName || shipment.carrier}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {shipment.price || '0'} ₺
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(shipment.status)}`}>
+                              {shipment.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>

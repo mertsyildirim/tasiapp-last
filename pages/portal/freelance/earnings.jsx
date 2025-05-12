@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
-import { FaMoneyBillWave, FaCalendarAlt, FaChartLine, FaFileInvoiceDollar, FaDownload, FaSearch, FaFilter } from 'react-icons/fa';
+import { FaMoneyBillWave, FaCalendarAlt, FaChartLine, FaFileInvoiceDollar, FaDownload, FaSearch, FaFilter, FaUser } from 'react-icons/fa';
 import FreelanceLayout from '../../../components/portal/FreelanceLayout';
+import axios from 'axios';
 
 export default function FreelanceEarnings() {
   const router = useRouter();
@@ -23,14 +24,10 @@ export default function FreelanceEarnings() {
   useEffect(() => {
     if (status === 'loading') return;
     
-    if (!session) {
-      // Oturum yoksa boş verilerle devam et
-      setEarnings([]);
-      setFilteredEarnings([]);
-      setTotalEarnings(0);
-      setPendingEarnings(0);
-      setCompletedEarnings(0);
-      setLoading(false);
+    // Oturum yoksa login sayfasına yönlendir
+    if (status !== 'authenticated') {
+      console.log("Oturum doğrulanamadı, login sayfasına yönlendiriliyor");
+      router.push('/portal/login');
       return;
     }
 
@@ -38,46 +35,56 @@ export default function FreelanceEarnings() {
     const fetchEarnings = async () => {
       setLoading(true);
       try {
+        console.log("API isteği gönderiliyor...");
         // Aktif dönem parametresini URL'e ekle
-        const url = period !== 'all' 
-          ? `/api/portal/freelance-earnings?period=${period}`
-          : '/api/portal/freelance-earnings';
+        const response = await axios.get('/api/portal/freelance-earnings', {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          },
+          params: {
+            userId: session?.user?.id,
+            period: period !== 'all' ? period : undefined
+          }
+        });
         
-        const response = await fetch(url);
-        const data = await response.json();
+        console.log('API yanıtı:', response.data);
         
-        if (data.success) {
-          console.log('Kazançlar başarıyla alındı:', data);
+        if (response.data.success) {
+          console.log('Kazançlar başarıyla alındı:', response.data);
           
           // API'den gelen verileri ata
-          setEarnings(data.earnings || []);
-          setFilteredEarnings(data.earnings || []);
+          setEarnings(response.data.earnings || []);
+          setFilteredEarnings(response.data.earnings || []);
           
           // Özet verilerini güncelle
-          const summary = data.summary || {};
+          const summary = response.data.summary || {};
           setTotalEarnings(summary.totalEarnings || 0);
           setPendingEarnings(summary.pendingEarnings || 0);
           setCompletedEarnings(summary.completedEarnings || 0);
         } else {
-          console.error('Kazanç verisi alınamadı:', data.message);
+          console.error('Kazanç verisi alınamadı:', response.data.message);
           // Hata durumunda boş veri göster
-          setEarnings([]);
-          setFilteredEarnings([]);
-          setTotalEarnings(0);
-          setPendingEarnings(0);
-          setCompletedEarnings(0);
+          initializeEmptyData();
         }
       } catch (error) {
         console.error('Kazanç verisi alınırken hata:', error);
+        console.error('Hata detayları:', error.response?.data);
+        
         // Hata durumunda boş veri göster
-        setEarnings([]);
-        setFilteredEarnings([]);
-        setTotalEarnings(0);
-        setPendingEarnings(0);
-        setCompletedEarnings(0);
+        initializeEmptyData();
       } finally {
         setLoading(false);
       }
+    };
+    
+    // Boş kazanç verisi oluşturma fonksiyonu
+    const initializeEmptyData = () => {
+      setEarnings([]);
+      setFilteredEarnings([]);
+      setTotalEarnings(0);
+      setPendingEarnings(0);
+      setCompletedEarnings(0);
     };
 
     fetchEarnings();

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
 import { FaTools, FaBell, FaShieldAlt, FaGlobe, FaToggleOn, FaToggleOff, FaSave, FaUndo } from 'react-icons/fa';
 import FreelanceLayout from '../../../components/portal/FreelanceLayout';
+import axios from 'axios';
 
 export default function FreelanceSettings() {
   const router = useRouter();
@@ -14,87 +15,15 @@ export default function FreelanceSettings() {
   const [settings, setSettings] = useState(null);
   const [saveStatus, setSaveStatus] = useState(null);
   
-  useEffect(() => {
-    if (status === 'loading') return;
-    
-    console.log("Freelance Settings - Session durumu:", status, "Session:", session);
-    
-    if (!session) {
-      setLoading(false);
-      return;
-    }
-
-    // API'den ayarları getir
-    const fetchSettings = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/portal/freelance-settings');
-        
-        // Response status kontrolü
-        if (!response.ok) {
-          console.error('API yanıt hatası:', response.status, response.statusText);
-          throw new Error(`API yanıt hatası: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          console.log('Ayarlar başarıyla alındı:', data.settings);
-          setSettings(data.settings);
-        } else {
-          console.error('Ayarlar alınamadı:', data.message);
-          // Varsayılan boş ayarlar oluştur
-          setSettings({
-            notifications: {
-              email: {
-                newRequests: true,
-                taskUpdates: true,
-                paymentNotifications: true,
-                marketingEmails: false,
-              },
-              sms: {
-                newRequests: true,
-                taskUpdates: true,
-                paymentNotifications: true,
-                emergencyAlerts: true,
-              },
-              pushNotifications: {
-                newRequests: true,
-                taskUpdates: true,
-                paymentNotifications: true,
-                systemUpdates: true,
-              },
-            },
-            privacy: {
-              showProfile: true,
-              showContactInfo: true,
-              showRating: true,
-              shareStatistics: false,
-            },
-            preferences: {
-              language: 'tr',
-              timezone: 'Europe/Istanbul',
-              currency: 'TRY',
-              distanceUnit: 'km',
-              weightUnit: 'ton',
-            },
-            security: {
-              twoFactorEnabled: false,
-              loginNotifications: true,
-              lastPasswordChange: new Date().toISOString(),
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Ayarlar alınırken hata:', error);
-        // Hata durumunda varsayılan ayarları kullan
-        setSettings({
+  // Varsayılan ayarları oluşturma fonksiyonu
+  const initializeDefaultSettings = () => {
+    setSettings({
       notifications: {
         email: {
           newRequests: true,
           taskUpdates: true,
           paymentNotifications: true,
-          marketingEmails: false,
+          marketingEmails: true,
         },
         sms: {
           newRequests: true,
@@ -113,28 +42,73 @@ export default function FreelanceSettings() {
         showProfile: true,
         showContactInfo: true,
         showRating: true,
-        shareStatistics: false,
+        shareStatistics: true,
       },
       preferences: {
         language: 'tr',
         timezone: 'Europe/Istanbul',
         currency: 'TRY',
         distanceUnit: 'km',
-        weightUnit: 'ton',
+        weightUnit: 'kg',
       },
       security: {
-        twoFactorEnabled: false,
+        twoFactorEnabled: true,
         loginNotifications: true,
-            lastPasswordChange: new Date().toISOString(),
+        lastPasswordChange: new Date().toISOString(),
+      }
+    });
+  };
+  
+  useEffect(() => {
+    if (status === 'loading') return;
+    
+    console.log("Freelance Settings - Session durumu:", status, "Session:", session);
+    
+    // Oturum yoksa login sayfasına yönlendir
+    if (status !== 'authenticated') {
+      console.log("Oturum doğrulanamadı, login sayfasına yönlendiriliyor");
+      router.push('/portal/login');
+      return;
+    }
+
+    // API'den ayarları getir
+    const fetchSettings = async () => {
+      try {
+        setLoading(true);
+        console.log("API isteği gönderiliyor...");
+        const response = await axios.get('/api/portal/freelance-settings', {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          },
+          params: {
+            userId: session?.user?.id
           }
         });
+        
+        console.log('API yanıtı:', response.data);
+        
+        if (response.data.success) {
+          console.log('Ayarlar başarıyla alındı:', response.data.settings);
+          setSettings(response.data.settings);
+        } else {
+          console.error('Ayarlar alınamadı:', response.data.message);
+          // Varsayılan boş ayarlar oluştur
+          initializeDefaultSettings();
+        }
+      } catch (error) {
+        console.error('Ayarlar alınırken hata:', error);
+        console.error('Hata detayları:', error.response?.data);
+        
+        // Hata durumunda varsayılan ayarları kullan
+        initializeDefaultSettings();
       } finally {
         setLoading(false);
       }
     };
     
     fetchSettings();
-  }, [status, session]);
+  }, [status, router, session]);
 
   // Yükleme durumu
   if (status === 'loading' || loading) {
@@ -198,52 +172,42 @@ export default function FreelanceSettings() {
   };
 
   const handleSaveSettings = async () => {
-    // API'ye ayarları gönder
     try {
       setSaveStatus('saving');
-      const response = await fetch('/api/portal/freelance-settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
+      
+      const response = await axios.put('/api/portal/freelance-settings', 
+        { 
+          settings 
         },
-        body: JSON.stringify({
-          settings: settings
-        }),
-      });
+        {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          }
+        }
+      );
       
-      const data = await response.json();
-      
-      if (data.success) {
-        console.log('Ayarlar başarıyla kaydedildi');
+      if (response.data.success) {
         setSaveStatus('success');
-        
-        // 3 saniye sonra durum mesajını temizle
-        setTimeout(() => {
-          setSaveStatus(null);
-        }, 3000);
+        setTimeout(() => setSaveStatus(null), 3000);
       } else {
-        console.error('Ayarlar kaydedilemedi:', data.message);
         setSaveStatus('error');
-        
-        // 3 saniye sonra durum mesajını temizle
-        setTimeout(() => {
-          setSaveStatus(null);
-        }, 3000);
+        console.error('Ayarlar kaydedilemedi:', response.data.message);
+        setTimeout(() => setSaveStatus(null), 3000);
       }
     } catch (error) {
-      console.error('Ayarlar kaydedilirken hata:', error);
       setSaveStatus('error');
-      
-      // 3 saniye sonra durum mesajını temizle
-      setTimeout(() => {
-        setSaveStatus(null);
-      }, 3000);
+      console.error('Ayarlar kaydedilirken hata:', error);
+      console.error('Hata detayları:', error.response?.data);
+      setTimeout(() => setSaveStatus(null), 3000);
     }
   };
 
   const handleResetSettings = async () => {
     try {
-      // Tüm ayarları açık duruma getir
+      setSaveStatus('resetting');
+      
+      // Önce varsayılan ayarları yerel olarak ayarla
       const defaultSettings = {
         notifications: {
           email: {
@@ -276,7 +240,7 @@ export default function FreelanceSettings() {
           timezone: 'Europe/Istanbul',
           currency: 'TRY',
           distanceUnit: 'km',
-          weightUnit: 'ton',
+          weightUnit: 'kg',
         },
         security: {
           twoFactorEnabled: true,
@@ -285,44 +249,38 @@ export default function FreelanceSettings() {
         }
       };
       
-      // Ayarları güncelle
+      // Önce yerel state'i güncelle
       setSettings(defaultSettings);
-      setSaveStatus('resetting');
       
-      // API'ye de ayarları gönder
-      const response = await fetch('/api/portal/freelance-settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
+      // Ardından bu ayarları API'ye kaydet
+      const response = await axios.put('/api/portal/freelance-settings', 
+        { 
+          settings: defaultSettings 
         },
-        body: JSON.stringify({
-          settings: defaultSettings
-        }),
-      });
+        {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          }
+        }
+      );
       
-      const data = await response.json();
-      
-      if (data.success) {
-        console.log('Sıfırlanan ayarlar başarıyla kaydedildi');
-        setSaveStatus('reset');
+      if (response.data.success) {
+        setSaveStatus('success');
+        console.log('Varsayılan ayarlar başarıyla kaydedildi:', response.data);
       } else {
-        console.error('Sıfırlanan ayarlar kaydedilemedi:', data.message);
-        setSaveStatus('error');
+        console.error('Varsayılan ayarlar kaydedilemedi:', response.data.message);
+        // API başarısız olsa bile yerel değişikliği göster
       }
       
-      // 3 saniye sonra durum mesajını temizle
-      setTimeout(() => {
-        setSaveStatus(null);
-      }, 3000);
-      
+      setTimeout(() => setSaveStatus(null), 3000);
     } catch (error) {
       console.error('Ayarlar sıfırlanırken hata:', error);
-      setSaveStatus('error');
+      console.error('Hata detayları:', error.response?.data);
       
-      // 3 saniye sonra durum mesajını temizle
-      setTimeout(() => {
-        setSaveStatus(null);
-      }, 3000);
+      // Hata olsa bile yerel değişikliği koruyalım
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus(null), 3000);
     }
   };
 
@@ -551,95 +509,6 @@ export default function FreelanceSettings() {
                       )}
                     </button>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Gizlilik Ayarları */}
-        <div className="bg-white shadow rounded-lg overflow-hidden mb-6">
-          <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-            <div className="flex items-center">
-              <FaShieldAlt className="h-5 w-5 text-orange-500 mr-2" />
-              <h3 className="text-lg font-medium leading-6 text-gray-900">Gizlilik Ayarları</h3>
-            </div>
-            <p className="mt-1 max-w-2xl text-sm text-gray-500">
-              Profilinizde ve sistemde hangi bilgilerinizin görüntüleneceğini kontrol edin.
-            </p>
-          </div>
-          
-          <div className="px-4 py-5 sm:p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">Profil Görünürlüğü</h4>
-                    <p className="text-xs text-gray-500">Profiliniz sistem kullanıcıları tarafından görüntülenebilir</p>
-                  </div>
-                  <button
-                    onClick={() => handleToggle('privacy', 'showProfile', null)}
-                    className="text-gray-700"
-                  >
-                    {settings.privacy.showProfile ? (
-                      <FaToggleOn className="h-6 w-6 text-orange-500" />
-                    ) : (
-                      <FaToggleOff className="h-6 w-6 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-                
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">İletişim Bilgileri Görünürlüğü</h4>
-                    <p className="text-xs text-gray-500">Telefon ve e-posta gibi iletişim bilgileriniz görüntülenebilir</p>
-                  </div>
-                  <button
-                    onClick={() => handleToggle('privacy', 'showContactInfo', null)}
-                    className="text-gray-700"
-                  >
-                    {settings.privacy.showContactInfo ? (
-                      <FaToggleOn className="h-6 w-6 text-orange-500" />
-                    ) : (
-                      <FaToggleOff className="h-6 w-6 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
-              
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">Değerlendirme Görünürlüğü</h4>
-                    <p className="text-xs text-gray-500">Değerlendirme puanınız ve yorumlar görüntülenebilir</p>
-                  </div>
-                  <button
-                    onClick={() => handleToggle('privacy', 'showRating', null)}
-                    className="text-gray-700"
-                  >
-                    {settings.privacy.showRating ? (
-                      <FaToggleOn className="h-6 w-6 text-orange-500" />
-                    ) : (
-                      <FaToggleOff className="h-6 w-6 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-                
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">İstatistik Paylaşımı</h4>
-                    <p className="text-xs text-gray-500">Taşıma ve rota istatistikleriniz platform üzerinde paylaşılabilir</p>
-                  </div>
-                  <button
-                    onClick={() => handleToggle('privacy', 'shareStatistics', null)}
-                    className="text-gray-700"
-                  >
-                    {settings.privacy.shareStatistics ? (
-                      <FaToggleOn className="h-6 w-6 text-orange-500" />
-                    ) : (
-                      <FaToggleOff className="h-6 w-6 text-gray-400" />
-                    )}
-                  </button>
                 </div>
               </div>
             </div>

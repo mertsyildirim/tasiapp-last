@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { FaInbox, FaCalendarAlt, FaMapMarkerAlt, FaClock, FaTruck, FaCheckCircle, FaTimesCircle, FaInfoCircle, FaEye, FaTimes, FaMapMarked, FaDirections } from 'react-icons/fa';
 import Link from 'next/link';
 import FreelanceLayout from '../../../components/portal/FreelanceLayout';
+import axios from 'axios';
 
 export default function FreelanceRequests() {
   const router = useRouter();
@@ -32,40 +33,57 @@ export default function FreelanceRequests() {
     
     console.log("Freelance Requests - Session durumu:", status, "Session:", session);
     
-    if (!session) return;
+    // Oturum yoksa login sayfasına yönlendir
+    if (status !== 'authenticated') {
+      console.log("Oturum doğrulanamadı, login sayfasına yönlendiriliyor");
+      router.push('/portal/login');
+      return;
+    }
 
     // Talepleri API'den al
     const fetchRequests = async () => {
       setLoading(true);
       try {
-        const response = await fetch('/api/portal/freelance-requests');
-        const data = await response.json();
+        console.log("API isteği gönderiliyor...");
+        const response = await axios.get('/api/portal/freelance-requests', {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          },
+          params: {
+            userId: session?.user?.id
+          }
+        });
         
-        if (data.success) {
-          console.log('Talepler başarıyla alındı:', data.requests);
-          setRequestsData(data.requests);
+        console.log('API yanıtı:', response.data);
+        
+        if (response.data.success) {
+          console.log('Talepler başarıyla alındı:', response.data.requests);
+          setRequestsData(response.data.requests);
         } else {
-          console.error('Talep verisi alınamadı:', data.message);
+          console.error('Talep verisi alınamadı:', response.data.message);
           // Hata durumunda boş veri göster
-          setRequestsData({
-            new: [],
-            pending: [],
-            accepted: [],
-            missed: []
-          });
+          initializeEmptyData();
         }
       } catch (error) {
         console.error('Talep verisi alınırken hata:', error);
+        console.error('Hata detayları:', error.response?.data);
+        
         // Hata durumunda boş veri göster
-        setRequestsData({
-          new: [],
-          pending: [],
-          accepted: [],
-          missed: []
-        });
+        initializeEmptyData();
       } finally {
         setLoading(false);
       }
+    };
+    
+    // Boş talep verisi oluşturma fonksiyonu
+    const initializeEmptyData = () => {
+      setRequestsData({
+        new: [],
+        pending: [],
+        accepted: [],
+        missed: []
+      });
     };
 
     fetchRequests();
@@ -137,20 +155,20 @@ export default function FreelanceRequests() {
 
   const handleAccept = async (id) => {
     try {
-      // API isteği yap
-      const response = await fetch('/api/portal/accept-request', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // API isteği yap - axios kullanarak
+      const response = await axios.post('/api/portal/accept-request', 
+        {
           requestId: id
-        }),
-      });
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          }
+        }
+      );
 
-      const data = await response.json();
-
-      if (data.success) {
+      if (response.data.success) {
         console.log(`Talep kabul edildi: ${id}`);
         
         // İlgili talebi new'den alıp accepted'a taşı
@@ -168,30 +186,31 @@ export default function FreelanceRequests() {
           setRequestsData(updatedData);
         }
       } else {
-        alert(`Talep kabul edilirken bir hata oluştu: ${data.message}`);
+        alert(`Talep kabul edilirken bir hata oluştu: ${response.data.message}`);
       }
     } catch (error) {
       console.error('Talep kabul hatası:', error);
+      console.error('Hata detayları:', error.response?.data);
       alert('Talep kabul edilirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
     }
   };
 
   const handleReject = async (id) => {
     try {
-      // API isteği yap
-      const response = await fetch('/api/portal/reject-request', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // API isteği yap - axios kullanarak
+      const response = await axios.post('/api/portal/reject-request', 
+        {
           requestId: id
-        }),
-      });
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${session?.accessToken}`,
+            'x-user-id': session?.user?.id
+          }
+        }
+      );
 
-      const data = await response.json();
-
-      if (data.success) {
+      if (response.data.success) {
         console.log(`Talep reddedildi: ${id}`);
         
         // İlgili talebi listeden çıkar
@@ -203,10 +222,11 @@ export default function FreelanceRequests() {
           setRequestsData(updatedData);
         }
       } else {
-        alert(`Talep reddedilirken bir hata oluştu: ${data.message}`);
+        alert(`Talep reddedilirken bir hata oluştu: ${response.data.message}`);
       }
     } catch (error) {
       console.error('Talep reddetme hatası:', error);
+      console.error('Hata detayları:', error.response?.data);
       alert('Talep reddedilirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.');
     }
   };
