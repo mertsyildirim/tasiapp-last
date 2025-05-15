@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Basit oturum kontrolü
+    // Basit oturum kontrolü - sadece oturum açılmış olması yeterli
     const session = await getServerSession(req, res, authOptions);
     
     if (!session) {
@@ -81,6 +81,7 @@ export default async function handler(req, res) {
             companyType: carrier.companyType || '',
             registrationNumber: carrier.registrationNumber || '',
             status: carrier.status || 'active',
+            commission_rate: carrier.commission_rate || 0,
             createdAt: carrier.createdAt || new Date(),
             updatedAt: carrier.updatedAt || new Date()
           }));
@@ -96,7 +97,7 @@ export default async function handler(req, res) {
           });
         } catch (error) {
           console.error('Taşıyıcıları getirme hatası:', error);
-          return res.status(500).json({ error: 'Taşıyıcılar getirilirken bir hata oluştu' });
+          return res.status(500).json({ success: false, error: 'Taşıyıcılar getirilirken bir hata oluştu' });
         }
       }
 
@@ -108,30 +109,34 @@ export default async function handler(req, res) {
             email, 
             phone, 
             company, 
+            companyName,
             address, 
             taxOffice, 
             taxNumber, 
             companyType, 
             registrationNumber, 
-            status = 'active' 
+            status = 'active',
+            commission_rate = 0
           } = req.body;
 
-          if (!name || !email || !phone || !company) {
-            return res.status(400).json({ error: 'Gerekli alanlar eksik' });
+          if (!name && !contactPerson) {
+            return res.status(400).json({ success: false, error: 'İsim veya iletişim kişisi gerekli' });
           }
 
           const newCarrier = {
             name: name || contactPerson, // İki alanı da destekle
             contactPerson: contactPerson || name, // İki alanı da destekle
-            email,
-            phone,
-            company,
+            email: email || '',
+            phone: phone || '',
+            company: company || companyName || '',
+            companyName: companyName || company || '',
             address: address || '',
             taxOffice: taxOffice || '',
             taxNumber: taxNumber || '',
             companyType: companyType || '',
             registrationNumber: registrationNumber || '',
-            status,
+            status: status || 'active',
+            commission_rate: parseFloat(commission_rate) || 0,
             createdAt: new Date(),
             updatedAt: new Date()
           };
@@ -147,55 +152,43 @@ export default async function handler(req, res) {
           });
         } catch (error) {
           console.error('Taşıyıcı oluşturma hatası:', error);
-          return res.status(500).json({ error: 'Taşıyıcı oluşturulurken bir hata oluştu' });
+          return res.status(500).json({ success: false, error: 'Taşıyıcı oluşturulurken bir hata oluştu' });
         }
       }
 
       case 'PUT': {
         try {
-          const { 
-            id, 
-            name, 
-            contactPerson, 
-            email, 
-            phone, 
-            company, 
-            address, 
-            taxOffice, 
-            taxNumber, 
-            companyType, 
-            registrationNumber, 
-            status,
-            ...otherFields 
-          } = req.body;
+          const { id, commission_rate } = req.body;
 
           if (!id) {
-            return res.status(400).json({ error: 'Taşıyıcı ID gerekli' });
+            return res.status(400).json({ success: false, error: 'Taşıyıcı ID gerekli' });
+          }
+
+          // ObjectId'ye çevirmeyi dene
+          let objectId;
+          try {
+            objectId = new ObjectId(id);
+          } catch (error) {
+            // Eğer ObjectId dönüşümü başarısız olursa, string ID ile devam et
+            objectId = id;
           }
 
           const updateData = {
-            ...(name && { name }),
-            ...(contactPerson && { contactPerson }),
-            ...(email && { email }),
-            ...(phone && { phone }),
-            ...(company && { company }),
-            ...(address && { address }),
-            ...(taxOffice && { taxOffice }),
-            ...(taxNumber && { taxNumber }),
-            ...(companyType && { companyType }),
-            ...(registrationNumber && { registrationNumber }),
-            ...(status && { status }),
-            ...otherFields,
+            ...(commission_rate !== undefined && { commission_rate: parseFloat(commission_rate) || 0 }),
             updatedAt: new Date()
           };
 
+          console.log("Güncellenecek veriler:", updateData);
+
           const result = await db.collection('companies').updateOne(
-            { _id: new ObjectId(id) },
+            { _id: objectId },
             { $set: updateData }
           );
 
+          console.log("Güncelleme sonucu:", result);
+
           if (result.matchedCount === 0) {
-            return res.status(404).json({ error: 'Taşıyıcı bulunamadı' });
+            return res.status(404).json({ success: false, error: 'Taşıyıcı bulunamadı' });
           }
 
           return res.status(200).json({
@@ -204,7 +197,7 @@ export default async function handler(req, res) {
           });
         } catch (error) {
           console.error('Taşıyıcı güncelleme hatası:', error);
-          return res.status(500).json({ error: 'Taşıyıcı güncellenirken bir hata oluştu' });
+          return res.status(500).json({ success: false, error: 'Taşıyıcı güncellenirken bir hata oluştu' });
         }
       }
 
@@ -213,13 +206,21 @@ export default async function handler(req, res) {
           const { id } = req.query;
 
           if (!id) {
-            return res.status(400).json({ error: 'Taşıyıcı ID gerekli' });
+            return res.status(400).json({ success: false, error: 'Taşıyıcı ID gerekli' });
           }
 
-          const result = await db.collection('companies').deleteOne({ _id: new ObjectId(id) });
+          // ObjectId'ye çevirmeyi dene
+          let objectId;
+          try {
+            objectId = new ObjectId(id);
+          } catch (error) {
+            return res.status(400).json({ success: false, error: 'Geçersiz ID formatı' });
+          }
+
+          const result = await db.collection('companies').deleteOne({ _id: objectId });
 
           if (result.deletedCount === 0) {
-            return res.status(404).json({ error: 'Taşıyıcı bulunamadı' });
+            return res.status(404).json({ success: false, error: 'Taşıyıcı bulunamadı' });
           }
 
           return res.status(200).json({
@@ -228,16 +229,16 @@ export default async function handler(req, res) {
           });
         } catch (error) {
           console.error('Taşıyıcı silme hatası:', error);
-          return res.status(500).json({ error: 'Taşıyıcı silinirken bir hata oluştu' });
+          return res.status(500).json({ success: false, error: 'Taşıyıcı silinirken bir hata oluştu' });
         }
       }
 
       default:
         res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
-        return res.status(405).json({ error: `Method ${method} Not Allowed` });
+        return res.status(405).json({ success: false, error: `Method ${method} Not Allowed` });
     }
   } catch (error) {
     console.error('API hatası:', error);
-    return res.status(500).json({ error: 'Sunucu hatası' });
+    return res.status(500).json({ success: false, error: 'Sunucu hatası' });
   }
 } 

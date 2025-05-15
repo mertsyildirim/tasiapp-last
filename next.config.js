@@ -10,6 +10,20 @@ const nextConfig = {
     serverComponentsExternalPackages: ["mongoose", "mongodb"],
     layers: true
   },
+  async rewrites() {
+    return [
+      {
+        source: '/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'portal.tasiapp.com',
+          },
+        ],
+        destination: '/portal/:path*',
+      },
+    ]
+  },
   webpack: (config, { isServer }) => {
     config.watchOptions = {
       poll: 1000,

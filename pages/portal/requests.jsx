@@ -4,6 +4,7 @@ import Script from 'next/script';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
 import PortalLayout from '../../components/portal/Layout';
+import { calculateCarrierPayment } from '../../lib/pricing';
 import { 
   FaClipboardCheck, FaSearch, FaFilter, FaSortAmountDown, FaSortAmountUp, 
   FaEye, FaLocationArrow, FaArrowRight, FaCalendarAlt, FaTag, 
@@ -292,6 +293,11 @@ export default function Requests() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Para formatını düzenle
+  const formatPrice = (price) => {
+    return Number(price || 0).toLocaleString('tr-TR') + ' ₺';
   };
 
   // Aktif talep detaylarını göster/gizle
@@ -951,6 +957,15 @@ export default function Requests() {
                   const statusInfo = getStatusInfo(request.status);
                   const isActive = activeRequest && activeRequest.id === request.id;
                   
+                  // Komisyon hesaplaması
+                  const commissionRate = request.commission_rate || 0; // Varsayılan %0 komisyon
+                  
+                  // Ödeme hesaplaması - mock veri için 3500 TL
+                  // API'den gelen veri varsa onu kullan, yoksa varsayılan değeri kullan
+                  const mockPrice = 3500;
+                  const requestPrice = request.price && request.price > 0 ? request.price : mockPrice;
+                  const payment = calculateCarrierPayment(requestPrice, commissionRate);
+                  
                   return (
                     <div 
                       key={request.id} 
@@ -967,7 +982,9 @@ export default function Requests() {
                           </div>
                         </div>
                         <div className="mt-2 md:mt-0 flex">
-                          <span className="text-lg font-bold text-orange-500">{request.price} ₺</span>
+                          <span className="text-lg font-bold text-orange-500">
+                            {formatPrice(payment.carrierPayment)}
+                          </span>
                           <button 
                             onClick={() => toggleRequestDetails(request)}
                             className="ml-4 text-blue-600 hover:text-blue-800 flex items-center text-sm"

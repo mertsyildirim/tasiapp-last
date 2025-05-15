@@ -1184,35 +1184,35 @@ export default function CustomersPage() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {showShipmentsModal.shipments?.map((shipment, index) => (
                         <tr key={shipment._id || index} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            <span 
-                              className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline" 
-                              onClick={() => viewShipmentDetails(shipment)}
-                            >
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              <span 
+                                className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline" 
+                                onClick={() => viewShipmentDetails(shipment)}
+                              >
                               #{shipment._id?.substring(shipment._id.length - 6) || `TŞM${index+1}`}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {new Date(shipment.createdAt).toLocaleDateString('tr-TR')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {shipment.pickupLocation || shipment.from}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {shipment.deliveryLocation || shipment.to}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {shipment.carrierName || shipment.carrier}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {shipment.price || '0'} ₺
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(shipment.status)}`}>
                               {shipment.status}
-                            </span>
-                          </td>
-                        </tr>
+                              </span>
+                            </td>
+                          </tr>
                       ))}
                     </tbody>
                   </table>

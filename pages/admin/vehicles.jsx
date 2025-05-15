@@ -954,7 +954,7 @@ export default function VehiclesPage() {
                         <option value="">Seçiniz</option>
                         {newVehicleData.vehicleType && vehicleTypes.find(type => type._id === newVehicleData.vehicleType)?.name && 
                           Object.keys(vehicleBrands[vehicleTypes.find(type => type._id === newVehicleData.vehicleType)?.name] || {}).map(brand => (
-                            <option key={brand} value={brand}>{brand}</option>
+                          <option key={brand} value={brand}>{brand}</option>
                           ))
                         }
                         <option value="other">Diğer</option>

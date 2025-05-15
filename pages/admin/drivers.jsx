@@ -580,16 +580,16 @@ export default function DriversPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <div className="w-full">
               <div className="flex space-x-2 flex-wrap">
-                <button
+                  <button
                   onClick={() => setSelectedTab('all')}
-                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                     selectedTab === 'all' 
-                      ? 'bg-orange-100 text-orange-800' 
-                      : 'bg-white text-gray-700 hover:bg-gray-100'
-                  } mb-2`}
-                >
+                        ? 'bg-orange-100 text-orange-800'
+                        : 'bg-white text-gray-700 hover:bg-gray-100'
+                    } mb-2`}
+                  >
                   Tüm Sürücüler
-                </button>
+                  </button>
                 <button
                   onClick={() => setSelectedTab('active')}
                   className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -621,27 +621,27 @@ export default function DriversPage() {
                   Çevrimdışı
                 </button>
               </div>
-            </div>
-            <form onSubmit={(e) => { e.preventDefault(); fetchDrivers(); }} className="flex flex-col md:flex-row gap-2">
-              <div className="relative w-full md:w-auto">
-                <input
-                  type="text"
-                  placeholder="Sürücü ara... (İsim, email, telefon, şirket)"
-                  className="pl-10 pr-4 py-2 w-full md:min-w-[350px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <FaSearch className="absolute left-3 top-[30%] transform -translate-y-1/2 text-gray-400 text-lg" />
               </div>
-              <button
-                type="button"
-                onClick={() => setShowAddDriverModal(true)}
+              <form onSubmit={(e) => { e.preventDefault(); fetchDrivers(); }} className="flex flex-col md:flex-row gap-2">
+                <div className="relative w-full md:w-auto">
+                  <input
+                    type="text"
+                    placeholder="Sürücü ara... (İsim, email, telefon, şirket)"
+                    className="pl-10 pr-4 py-2 w-full md:min-w-[350px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                <FaSearch className="absolute left-3 top-[30%] transform -translate-y-1/2 text-gray-400 text-lg" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddDriverModal(true)}
                 className="bg-orange-600 text-white px-4 py-2.5 rounded-lg hover:bg-orange-700 flex items-center gap-2 text-sm font-medium whitespace-nowrap"
-              >
-                <FaPlus className="text-sm" />
-                <span>Yeni Sürücü</span>
-              </button>
-            </form>
+                >
+                  <FaPlus className="text-sm" />
+                  <span>Yeni Sürücü</span>
+                </button>
+              </form>
           </div>
 
           {/* İstatistik Kutuları */}

@@ -385,8 +385,8 @@ export default function DashboardPage() {
                             ? 'bg-red-100 text-red-800' 
                             : 'bg-green-100 text-green-800'
                         }`}>
-                          {user.status === 'active' ? 'Aktif' : 'Pasif'}
-                        </span>
+                        {user.status === 'active' ? 'Aktif' : 'Pasif'}
+                      </span>
                       </td>
                   </div>
                 ))}

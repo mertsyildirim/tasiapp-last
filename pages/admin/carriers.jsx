@@ -869,8 +869,8 @@ export default function CarriersPage() {
                             if (data.success) {
                               setDrivers(data.drivers);
                             }
-                            setLoadingDrivers(false);
-                            setShowCarrierDriversModal(true);
+                          setLoadingDrivers(false);
+                          setShowCarrierDriversModal(true);
                           })
                           .catch(error => {
                             console.error('Sürücü verileri alınırken hata:', error);
@@ -908,8 +908,8 @@ export default function CarriersPage() {
                             if (data.success) {
                               setVehicles(data.vehicles);
                             }
-                            setLoadingVehicles(false);
-                            setShowCarrierVehiclesModal(true);
+                          setLoadingVehicles(false);
+                          setShowCarrierVehiclesModal(true);
                           })
                           .catch(error => {
                             console.error('Araç verileri alınırken hata:', error);
@@ -973,6 +973,66 @@ export default function CarriersPage() {
                         <FaPhone className="text-gray-400 mr-2" />
                         {showCarrierDetailModal.phoneNumber || showCarrierDetailModal.phone || "-"}
                       </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                        Komisyon Oranı (%)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        className="w-full text-sm font-medium text-gray-900 bg-white p-2 rounded-md border border-gray-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:outline-none"
+                        defaultValue={showCarrierDetailModal.commission_rate || 0}
+                        onChange={(e) => {
+                          // Sadece kabul edilebilir sayılar
+                          let value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                          
+                          // İzin verilen aralıkta olduğunu kontrol et
+                          if (isNaN(value)) value = 0;
+                          if (value < 0) value = 0;
+                          if (value > 100) value = 100;
+                          
+                          // Değeri güncelle
+                          showCarrierDetailModal.commission_rate = value;
+                        }}
+                        onBlur={async (e) => {
+                          // Değer değiştiğinde API'ye kaydetme işlemi
+                          try {
+                            let value = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                            
+                            // İzin verilen aralıkta olduğunu tekrar kontrol et
+                            if (isNaN(value)) value = 0;
+                            if (value < 0) value = 0;
+                            if (value > 100) value = 100;
+                            
+                            console.log(`Komisyon oranı gönderiliyor: ${value}`);
+                            
+                            const response = await fetch(`/api/admin/carriers`, {
+                              method: 'PUT',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify({
+                                id: showCarrierDetailModal._id.toString(), // ID'yi string'e çevir
+                                commission_rate: value
+                              }),
+                            });
+                            
+                            const data = await response.json();
+                            
+                            if (response.ok && data.success) {
+                              console.log('Komisyon oranı güncellendi');
+                            } else {
+                              console.error('Komisyon oranı güncellenirken hata oluştu:', data.error || 'Bilinmeyen hata');
+                            }
+                          } catch (error) {
+                            console.error('Komisyon oranı güncellenirken hata:', error);
+                          }
+                        }}
+                      />
                     </div>
                   </div>
                   
@@ -1503,6 +1563,222 @@ export default function CarriersPage() {
                     onClick={() => setShowCarrierVehiclesModal(false)}
                   >
                     <FaTimes className="mr-2" /> Kapat
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Düzenleme Modalı */}
+      {showEditCarrierModal && (
+        <div className="fixed inset-0 z-30 overflow-y-auto">
+          <div className="flex min-h-screen items-end justify-center px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+            <span className="hidden sm:inline-block sm:h-screen sm:align-middle" aria-hidden="true">&#8203;</span>
+            <div className="relative inline-block transform overflow-hidden rounded-lg bg-white text-left align-bottom shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-3xl sm:align-middle">
+              {/* Modal Header */}
+              <div className="bg-orange-50 px-6 py-4 border-b border-orange-100">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-orange-800">
+                    Taşıyıcı Düzenle
+                  </h3>
+                  <div className="flex items-center">
+                    <span className="mr-2 text-sm text-gray-500">ID: TF{showEditCarrierModal._id.toString().slice(-4)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Modal Body */}
+              <div className="px-6 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                        Firma Adı
+                      </label>
+                      <input 
+                        type="text" 
+                        className="w-full text-sm font-medium text-gray-900 bg-white p-2 rounded-md border border-gray-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:outline-none"
+                        defaultValue={showEditCarrierModal.companyName || ""}
+                        onChange={(e) => showEditCarrierModal.companyName = e.target.value}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                        İletişim Kişisi
+                      </label>
+                      <input 
+                        type="text" 
+                        className="w-full text-sm font-medium text-gray-900 bg-white p-2 rounded-md border border-gray-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:outline-none"
+                        defaultValue={showEditCarrierModal.contactPerson || ""}
+                        onChange={(e) => showEditCarrierModal.contactPerson = e.target.value}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                        E-posta
+                      </label>
+                      <input 
+                        type="email" 
+                        className="w-full text-sm font-medium text-gray-900 bg-white p-2 rounded-md border border-gray-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:outline-none"
+                        defaultValue={showEditCarrierModal.email || ""}
+                        onChange={(e) => showEditCarrierModal.email = e.target.value}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                        Telefon
+                      </label>
+                      <input 
+                        type="tel" 
+                        className="w-full text-sm font-medium text-gray-900 bg-white p-2 rounded-md border border-gray-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:outline-none"
+                        defaultValue={showEditCarrierModal.phoneNumber || showEditCarrierModal.phone || ""}
+                        onChange={(e) => showEditCarrierModal.phone = e.target.value}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                        Komisyon Oranı (%)
+                      </label>
+                      <input 
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        className="w-full text-sm font-medium text-gray-900 bg-white p-2 rounded-md border border-gray-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:outline-none"
+                        defaultValue={showEditCarrierModal.commission_rate || 0}
+                        onChange={(e) => showEditCarrierModal.commission_rate = parseFloat(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                        Vergi Numarası
+                      </label>
+                      <input 
+                        type="text" 
+                        className="w-full text-sm font-medium text-gray-900 bg-white p-2 rounded-md border border-gray-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:outline-none"
+                        defaultValue={showEditCarrierModal.taxNumber || ""}
+                        onChange={(e) => showEditCarrierModal.taxNumber = e.target.value}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                        Vergi Dairesi
+                      </label>
+                      <input 
+                        type="text" 
+                        className="w-full text-sm font-medium text-gray-900 bg-white p-2 rounded-md border border-gray-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:outline-none"
+                        defaultValue={showEditCarrierModal.taxOffice || ""}
+                        onChange={(e) => showEditCarrierModal.taxOffice = e.target.value}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                        Adres
+                      </label>
+                      <textarea 
+                        className="w-full text-sm font-medium text-gray-900 bg-white p-2 rounded-md border border-gray-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:outline-none"
+                        rows="3"
+                        defaultValue={showEditCarrierModal.address || ""}
+                        onChange={(e) => showEditCarrierModal.address = e.target.value}
+                      ></textarea>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1">
+                        Durum
+                      </label>
+                      <select
+                        className="w-full text-sm font-medium text-gray-900 bg-white p-2 rounded-md border border-gray-300 focus:border-orange-500 focus:ring focus:ring-orange-200 focus:outline-none"
+                        defaultValue={showEditCarrierModal.status || "active"}
+                        onChange={(e) => showEditCarrierModal.status = e.target.value}
+                      >
+                        <option value="active">Aktif</option>
+                        <option value="pending">Beklemede</option>
+                        <option value="WAITING_APPROVAL">Onay Bekliyor</option>
+                        <option value="WAITING_DOCUMENTS">Belge Bekliyor</option>
+                        <option value="inactive">Pasif</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Modal Footer */}
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+                <div className="flex justify-end gap-2">
+                  <button 
+                    type="button"
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-md border border-transparent bg-orange-600 text-sm font-medium text-white shadow-sm hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
+                    onClick={async () => {
+                      try {
+                        // Sayısal değerleri güvenli şekilde hazırla
+                        const commissionRate = showEditCarrierModal.commission_rate !== undefined ? 
+                          parseFloat(showEditCarrierModal.commission_rate) : 0;
+                        
+                        // API isteği için veri hazırla 
+                        const updateData = {
+                          id: showEditCarrierModal._id,
+                          contactPerson: showEditCarrierModal.contactPerson,
+                          name: showEditCarrierModal.name,
+                          email: showEditCarrierModal.email,
+                          phone: showEditCarrierModal.phone,
+                          companyName: showEditCarrierModal.companyName,
+                          address: showEditCarrierModal.address,
+                          taxOffice: showEditCarrierModal.taxOffice,
+                          taxNumber: showEditCarrierModal.taxNumber,
+                          status: showEditCarrierModal.status,
+                          commission_rate: commissionRate
+                        };
+                        
+                        console.log("API'ye gönderilecek veriler:", updateData);
+                        
+                        const response = await fetch(`/api/admin/carriers`, {
+                          method: 'PUT',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify(updateData),
+                        });
+                        
+                        const data = await response.json();
+                        console.log("API yanıtı:", data);
+                        
+                        if (data.success) {
+                          // Başarılı güncelleme
+                          // Taşıyıcı listesini yenilemek için fetchCarriers fonksiyonunu çağır
+                          setCurrentPage(1); // Bu durumda useEffect tetiklenecek ve veriler yeniden çekilecek
+                          setShowEditCarrierModal(null);
+                        } else {
+                          console.error('Taşıyıcı güncellenirken hata:', data.error);
+                          alert('Taşıyıcı güncellenirken bir hata oluştu: ' + (data.error || 'Bilinmeyen hata'));
+                        }
+                      } catch (error) {
+                        console.error('Taşıyıcı güncellenirken hata:', error);
+                        alert('Taşıyıcı güncellenirken bir hata oluştu');
+                      }
+                    }}
+                  >
+                    <FaCheck className="mr-2" /> Kaydet
+                  </button>
+                  
+                  <button 
+                    type="button"
+                    className="inline-flex items-center justify-center px-4 py-2 rounded-md border border-gray-300 bg-white text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors"
+                    onClick={() => setShowEditCarrierModal(null)}
+                  >
+                    <FaTimes className="mr-2" /> İptal
                   </button>
                 </div>
               </div>

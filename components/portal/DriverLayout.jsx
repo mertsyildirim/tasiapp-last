@@ -477,9 +477,9 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', def
               <div className="flex items-center">
                 <span className={`inline-flex items-center ml-2 px-2 py-1 rounded-full text-xs font-medium ${
                   isOnline ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                }`}>
+              }`}>
                   {driverStatus}
-                </span>
+              </span>
                 <button 
                   onClick={toggleOnlineStatus}
                   className={`ml-2 p-1 rounded-full transition-colors duration-200 focus:outline-none ${
@@ -509,11 +509,11 @@ export default function DriverLayout({ children, title = 'Sürücü Paneli', def
               <div className="flex items-center space-x-4">
                 <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
                 <div className="flex items-center space-x-2">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                     isOnline ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
+                }`}>
                     {driverStatus}
-                  </span>
+                </span>
                   <button 
                     onClick={toggleOnlineStatus}
                     className={`p-1 rounded-full transition-colors duration-200 focus:outline-none ${
