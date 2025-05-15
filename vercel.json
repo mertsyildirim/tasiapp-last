@@ -11,16 +11,6 @@
           "value": "tasiapp.com"
         }
       ]
-    },
-    {
-      "source": "/:path*",
-      "destination": "/portal/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "portal.tasiapp.com"
-        }
-      ]
     }
   ],
   "headers": [
